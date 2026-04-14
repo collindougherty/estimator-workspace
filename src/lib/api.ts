@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 
+import { buildProjectNotesWithCustomerContact } from './customer-contact'
 import { supabase } from './supabase'
 import type {
   ContractorPreset,
@@ -137,19 +138,54 @@ export const createProjectFromPreset = async (params: {
   presetId: string
   name: string
   customerName: string
+  customerAddress: string
+  customerEmail: string
+  customerPhone: string
   location: string
   bidDueDate: string
   notes: string
 }) => {
-  const { data, error } = await supabase.rpc('create_project_from_preset', {
+  const rpcArgs = {
     p_organization_id: params.organizationId,
     p_preset_id: params.presetId,
     p_name: params.name,
     p_customer_name: params.customerName || undefined,
+    p_customer_address: params.customerAddress || undefined,
+    p_customer_email: params.customerEmail || undefined,
+    p_customer_phone: params.customerPhone || undefined,
     p_location: params.location || undefined,
     p_bid_due_date: params.bidDueDate || undefined,
     p_notes: params.notes || undefined,
-  })
+  }
+
+  const { data, error } = await supabase.rpc('create_project_from_preset', rpcArgs)
+
+  if (
+    error?.message.includes('Could not find the function public.create_project_from_preset')
+  ) {
+    const { data: fallbackData, error: fallbackError } = await supabase.rpc(
+      'create_project_from_preset',
+      {
+        p_organization_id: params.organizationId,
+        p_preset_id: params.presetId,
+        p_name: params.name,
+        p_customer_name: params.customerName || undefined,
+        p_location: params.location || undefined,
+        p_bid_due_date: params.bidDueDate || undefined,
+        p_notes: buildProjectNotesWithCustomerContact({
+          notes: params.notes,
+          contact: {
+            address: params.customerAddress,
+            email: params.customerEmail,
+            phone: params.customerPhone,
+          },
+        }),
+      },
+    )
+
+    throwOnError(fallbackError)
+    return fallbackData
+  }
 
   throwOnError(error)
   return data

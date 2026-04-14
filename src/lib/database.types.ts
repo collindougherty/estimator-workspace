@@ -65,6 +65,57 @@ export type Database = {
           },
         ]
       }
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          organization_id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -411,6 +462,7 @@ export type Database = {
           bid_due_date: string | null
           created_at: string
           created_by: string | null
+          customer_id: string | null
           customer_name: string | null
           id: string
           location: string | null
@@ -425,6 +477,7 @@ export type Database = {
           bid_due_date?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           id?: string
           location?: string | null
@@ -439,6 +492,7 @@ export type Database = {
           bid_due_date?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           id?: string
           location?: string | null
@@ -455,6 +509,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
@@ -547,7 +608,11 @@ export type Database = {
           bid_due_date: string | null
           created_at: string | null
           created_by: string | null
+          customer_address: string | null
+          customer_email: string | null
+          customer_id: string | null
           customer_name: string | null
+          customer_phone: string | null
           earned_value_amount: number | null
           estimated_direct_cost: number | null
           estimated_labor_hours: number | null
@@ -571,6 +636,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
@@ -598,7 +670,10 @@ export type Database = {
       create_project_from_preset: {
         Args: {
           p_bid_due_date?: string
+          p_customer_address?: string
+          p_customer_email?: string
           p_customer_name?: string
+          p_customer_phone?: string
           p_location?: string
           p_name: string
           p_notes?: string

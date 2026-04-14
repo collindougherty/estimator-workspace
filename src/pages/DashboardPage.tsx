@@ -11,7 +11,12 @@ import {
   updateProjectStatus,
 } from '../lib/api'
 import { formatCurrency, formatDate } from '../lib/formatters'
-import { projectStatusLabelMap } from '../lib/project-status'
+import {
+  getProjectStatusTone,
+  normalizeProjectWorkflowStatus,
+  projectStatusLabelMap,
+  projectWorkflowStatusOptions,
+} from '../lib/project-status'
 import type {
   ContractorPreset,
   Organization,
@@ -25,20 +30,13 @@ import { StatusBadge } from '../components/StatusBadge'
 const emptyProjectForm = {
   name: '',
   customerName: '',
+  customerAddress: '',
+  customerEmail: '',
+  customerPhone: '',
   location: '',
   bidDueDate: '',
   notes: '',
 }
-
-const projectStatusOptions: ProjectStatus[] = [
-  'draft',
-  'bidding',
-  'submitted',
-  'won',
-  'active',
-  'completed',
-  'lost',
-]
 
 export const DashboardPage = () => {
   const navigate = useNavigate()
@@ -153,6 +151,9 @@ export const DashboardPage = () => {
     [organizations, selectedOrganizationId],
   )
 
+  const isCustomerContactRecommended =
+    !projectForm.customerEmail.trim() && !projectForm.customerPhone.trim()
+
   const handleCreateOrganization = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsCreatingOrganization(true)
@@ -179,6 +180,16 @@ export const DashboardPage = () => {
 
     if (!selectedOrganizationId || !selectedPresetId) {
       setScreenError('Select an organization and preset first.')
+      return
+    }
+
+    if (
+      (projectForm.customerAddress.trim() ||
+        projectForm.customerEmail.trim() ||
+        projectForm.customerPhone.trim()) &&
+      !projectForm.customerName.trim()
+    ) {
+      setScreenError('Add a customer name when entering customer contact details.')
       return
     }
 
@@ -318,7 +329,7 @@ export const DashboardPage = () => {
           {isCreateFormOpen ? (
               <article className="panel panel-compact">
                <form className="stack-form stack-form-inline project-create-form" onSubmit={handleCreateProject}>
-                 <label className="project-create-field">
+                 <label className="project-create-field project-create-field-preset">
                    Preset
                    <select
                      className="project-create-select"
@@ -345,8 +356,8 @@ export const DashboardPage = () => {
                   />
                 </label>
                  <label className="project-create-field">
-                   Customer
-                  <input
+                    Customer
+                    <input
                     onChange={(event) =>
                       setProjectForm((current) => ({
                         ...current,
@@ -354,9 +365,35 @@ export const DashboardPage = () => {
                       }))
                     }
                     type="text"
-                    value={projectForm.customerName}
-                  />
-                </label>
+                     value={projectForm.customerName}
+                   />
+                 </label>
+                 <label className="project-create-field">
+                   Customer email
+                   <input
+                     onChange={(event) =>
+                       setProjectForm((current) => ({
+                         ...current,
+                         customerEmail: event.target.value,
+                       }))
+                     }
+                     type="email"
+                     value={projectForm.customerEmail}
+                   />
+                 </label>
+                 <label className="project-create-field">
+                   Customer phone
+                   <input
+                     onChange={(event) =>
+                       setProjectForm((current) => ({
+                         ...current,
+                         customerPhone: event.target.value,
+                       }))
+                     }
+                     type="tel"
+                     value={projectForm.customerPhone}
+                   />
+                 </label>
                  <label className="project-create-field">
                    Location
                   <input
@@ -377,9 +414,22 @@ export const DashboardPage = () => {
                       }))
                     }
                     type="date"
-                    value={projectForm.bidDueDate}
-                  />
-                </label>
+                     value={projectForm.bidDueDate}
+                   />
+                 </label>
+                 <label className="project-create-field project-create-field-wide">
+                   Customer address
+                   <input
+                     onChange={(event) =>
+                       setProjectForm((current) => ({
+                         ...current,
+                         customerAddress: event.target.value,
+                       }))
+                     }
+                     type="text"
+                     value={projectForm.customerAddress}
+                   />
+                 </label>
                  <button
                    className="primary-button project-create-submit"
                    disabled={
@@ -388,12 +438,17 @@ export const DashboardPage = () => {
                     !selectedOrganizationId ||
                     !selectedPresetId
                   }
-                  type="submit"
-                >
-                  {isCreatingProject ? 'Creating…' : 'Create bid'}
-                </button>
-              </form>
-            </article>
+                   type="submit"
+                 >
+                   {isCreatingProject ? 'Creating…' : 'Create bid'}
+                 </button>
+                 {isCustomerContactRecommended ? (
+                   <p className="project-create-note">
+                     Recommended: add a customer phone or email so the bid is ready to send later.
+                   </p>
+                 ) : null}
+               </form>
+             </article>
           ) : null}
 
           <section className="list-stack">
@@ -448,9 +503,12 @@ export const DashboardPage = () => {
                             <td>{formatDate(project.bid_due_date)}</td>
                             <td className="project-list-status">
                               {project.project_id ? (
+                                project.status === 'archived' ? (
+                                  <StatusBadge status={project.status} />
+                                ) : (
                                 <select
                                   aria-label={`Status for ${project.name ?? 'project'}`}
-                                  className={`status-select status-select-${project.status ?? 'draft'}`}
+                                  className={`status-select status-select-${getProjectStatusTone(project.status)}`}
                                   disabled={updatingProjectId === project.project_id}
                                   onChange={(event) => {
                                     void handleProjectStatusChange(
@@ -458,14 +516,15 @@ export const DashboardPage = () => {
                                       event.target.value as ProjectStatus,
                                     )
                                   }}
-                                  value={project.status ?? 'draft'}
+                                  value={normalizeProjectWorkflowStatus(project.status)}
                                 >
-                                  {projectStatusOptions.map((status) => (
+                                  {projectWorkflowStatusOptions.map((status) => (
                                     <option key={status} value={status}>
                                       {projectStatusLabelMap[status]}
                                     </option>
                                   ))}
                                 </select>
+                                )
                               ) : (
                                 project.status ? <StatusBadge status={project.status} /> : '—'
                               )}

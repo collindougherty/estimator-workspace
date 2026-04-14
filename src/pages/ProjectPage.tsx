@@ -14,6 +14,7 @@ import {
   updateProjectActuals,
   updateProjectEstimateItem,
 } from '../lib/api'
+import { hasCustomerContact, parseProjectCustomerContact } from '../lib/customer-contact'
 import { formatCurrency, formatDate } from '../lib/formatters'
 import { exportProposalPdf } from '../lib/proposal-pdf'
 import type {
@@ -159,6 +160,17 @@ export const ProjectPage = () => {
   }, [project?.status])
 
   const isReadOnly = project?.status === 'lost' || project?.status === 'archived'
+
+  const customerContact = useMemo(
+    () =>
+      parseProjectCustomerContact({
+        address: project?.customer_address,
+        email: project?.customer_email,
+        phone: project?.customer_phone,
+        notes: project?.notes,
+      }),
+    [project?.customer_address, project?.customer_email, project?.customer_phone, project?.notes],
+  )
 
   const existingScopeCodes = useMemo(
     () => new Set(items.map((item) => item.item_code).filter(Boolean)),
@@ -351,6 +363,20 @@ export const ProjectPage = () => {
             {project?.customer_name ?? 'Customer pending'} · {project?.location ?? 'Location pending'} ·
             Due {project ? formatDate(project.bid_due_date) : isLoading ? 'Loading…' : 'No date'}
           </p>
+          {hasCustomerContact(customerContact) ? (
+            <details className="customer-details">
+              <summary>Customer details</summary>
+              <div className="customer-details-body">
+                {customerContact.address ? <span>{customerContact.address}</span> : null}
+                {customerContact.email ? (
+                  <a href={`mailto:${customerContact.email}`}>{customerContact.email}</a>
+                ) : null}
+                {customerContact.phone ? (
+                  <a href={`tel:${customerContact.phone}`}>{customerContact.phone}</a>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
         </div>
         <div className="project-header-actions">
           <button
