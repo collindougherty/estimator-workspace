@@ -66,7 +66,7 @@ export const exportProposalPdf = ({
 
   const includedItems = items.filter((item) => item.is_included)
   const projectName = project.name ?? 'Proposal'
-  const brandName = organizationName || 'Contractor App'
+  const brandName = organizationName || 'Estimator Workspace'
   const estimatedTotal = includedItems.reduce(
     (sum, item) => sum + (item.estimated_total_cost ?? 0),
     0,

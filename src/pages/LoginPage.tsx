@@ -33,7 +33,7 @@ export const LoginPage = () => {
     <main className="auth-screen">
       <section className="auth-card auth-card-simple">
         <form className="auth-form" onSubmit={handleSubmit}>
-          <p className="eyebrow">Contractor app</p>
+          <p className="eyebrow">Estimator workspace</p>
           <h1>Sign in</h1>
           <div>
             <label htmlFor="email">Email</label>

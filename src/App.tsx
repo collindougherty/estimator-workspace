@@ -14,7 +14,7 @@ const AppRouter = () => {
     return (
       <main className="loading-screen">
         <div className="loading-card">
-          <p className="eyebrow">Contractor app</p>
+          <p className="eyebrow">Estimator workspace</p>
           <h1>Loading workspace…</h1>
           <p>Preparing workspace.</p>
         </div>
