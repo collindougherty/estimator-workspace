@@ -50,6 +50,60 @@ begin
   on conflict (organization_id, user_id) do update
   set role = excluded.role;
 
+  delete from public.organization_employee_library
+  where organization_id = demo_org_id;
+
+  delete from public.organization_equipment_library
+  where organization_id = demo_org_id;
+
+  delete from public.organization_material_library
+  where organization_id = demo_org_id;
+
+  insert into public.organization_employee_library (
+    organization_id,
+    name,
+    role,
+    hourly_rate
+  )
+  values
+    (demo_org_id, 'Roof crew blend', 'Production blend', 34),
+    (demo_org_id, 'Roofing foreman', 'Install crew lead', 38),
+    (demo_org_id, 'Roofing technician', 'Shingle crew', 31),
+    (demo_org_id, 'Roof laborer', 'Tear-off crew', 26),
+    (demo_org_id, 'Gutter installer', 'Exterior crew', 29),
+    (demo_org_id, 'Estimator / project manager', 'Sales + PM', 42);
+
+  insert into public.organization_equipment_library (
+    organization_id,
+    name,
+    daily_rate
+  )
+  values
+    (demo_org_id, 'Dump trailer', 165),
+    (demo_org_id, 'Boom lift', 325),
+    (demo_org_id, 'Telehandler', 360),
+    (demo_org_id, 'Magnetic sweeper', 55),
+    (demo_org_id, 'Shingle conveyor', 180),
+    (demo_org_id, 'Material lift', 95);
+
+  insert into public.organization_material_library (
+    organization_id,
+    name,
+    unit,
+    cost_per_unit
+  )
+  values
+    (demo_org_id, 'Architectural shingles', 'SF', 1.95),
+    (demo_org_id, 'Ice and water shield', 'SF', 1.12),
+    (demo_org_id, 'Synthetic underlayment', 'SF', 0.34),
+    (demo_org_id, 'Starter strip', 'LF', 1.35),
+    (demo_org_id, 'Ridge cap', 'LF', 2.85),
+    (demo_org_id, 'Ridge vent', 'LF', 4.75),
+    (demo_org_id, 'Drip edge', 'LF', 3.65),
+    (demo_org_id, 'Pipe flashing', 'EA', 24),
+    (demo_org_id, 'Step flashing', 'EA', 3.9),
+    (demo_org_id, 'Roofing nails', 'LB', 2.2);
+
   select id
   into system_preset_id
   from public.contractor_presets

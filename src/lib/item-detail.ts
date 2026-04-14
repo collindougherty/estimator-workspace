@@ -13,33 +13,39 @@ export const defaultUnitOptions = [
   'TON',
 ]
 
-export type MaterialLibraryOption = {
-  label: string
+export type CompanyEmployeeDraft = {
+  name: string
+  role: string
+  hourlyRate: string
+}
+
+export type CompanyEquipmentDraft = {
+  name: string
+  dailyRate: string
+}
+
+export type CompanyMaterialDraft = {
+  name: string
   unit: string
-  costPerUnit: number
+  costPerUnit: string
 }
 
-export type EquipmentLibraryOption = {
-  label: string
-  rate: number
-}
+export const createEmptyCompanyEmployeeDraft = (): CompanyEmployeeDraft => ({
+  name: '',
+  role: '',
+  hourlyRate: '0',
+})
 
-export const materialLibraryOptions: MaterialLibraryOption[] = [
-  { label: 'Architectural shingles', unit: 'SF', costPerUnit: 5.01 },
-  { label: 'Ice and water shield', unit: 'SF', costPerUnit: 3.06 },
-  { label: 'Synthetic underlayment', unit: 'SF', costPerUnit: 0.57 },
-  { label: 'Flashing and drip edge', unit: 'LF', costPerUnit: 8 },
-  { label: 'Gutters and downspouts', unit: 'LF', costPerUnit: 17.79 },
-  { label: 'Siding patch and replacement', unit: 'SF', costPerUnit: 29.2 },
-]
+export const createEmptyCompanyEquipmentDraft = (): CompanyEquipmentDraft => ({
+  name: '',
+  dailyRate: '0',
+})
 
-export const equipmentLibraryOptions: EquipmentLibraryOption[] = [
-  { label: 'Dump trailer', rate: 160 },
-  { label: 'Boom lift', rate: 325 },
-  { label: 'Skid steer', rate: 280 },
-  { label: 'Telehandler', rate: 360 },
-  { label: 'Mini excavator', rate: 295 },
-]
+export const createEmptyCompanyMaterialDraft = (): CompanyMaterialDraft => ({
+  name: '',
+  unit: 'SF',
+  costPerUnit: '0',
+})
 
 export const parseNumericInput = (value: string) => {
   const parsed = Number(value)

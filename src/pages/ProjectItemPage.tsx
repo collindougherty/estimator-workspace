@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 
+import { CompanyLibraryPanel } from '../components/CompanyLibraryPanel'
 import { MetricCard } from '../components/MetricCard'
 import { StatusBadge } from '../components/StatusBadge'
 import {
+  createOrganizationEmployeeLibraryItem,
+  createOrganizationEquipmentLibraryItem,
+  createOrganizationMaterialLibraryItem,
+  deleteOrganizationEmployeeLibraryItem,
+  deleteOrganizationEquipmentLibraryItem,
+  deleteOrganizationMaterialLibraryItem,
+  fetchOrganizationEmployeeLibrary,
+  fetchOrganizationEquipmentLibrary,
+  fetchOrganizationMaterialLibrary,
   fetchProjectItemMetric,
   fetchProjectSummary,
   updateProjectActuals,
@@ -15,12 +25,16 @@ import {
   calculateActualOverheadCost,
   calculateExtendedCost,
   deriveUnitCost,
-  equipmentLibraryOptions,
-  materialLibraryOptions,
   parseNumericInput,
   roundCurrencyValue,
 } from '../lib/item-detail'
-import type { ProjectItemMetric, ProjectSummary } from '../lib/models'
+import type {
+  OrganizationEmployeeLibraryItem,
+  OrganizationEquipmentLibraryItem,
+  OrganizationMaterialLibraryItem,
+  ProjectItemMetric,
+  ProjectSummary,
+} from '../lib/models'
 
 type EstimateFormState = {
   itemName: string
@@ -82,14 +96,32 @@ export const ProjectItemPage = () => {
   const { itemId, projectId } = useParams()
   const [project, setProject] = useState<ProjectSummary | null>(null)
   const [item, setItem] = useState<ProjectItemMetric | null>(null)
+  const [employeeLibrary, setEmployeeLibrary] = useState<OrganizationEmployeeLibraryItem[]>([])
+  const [equipmentLibrary, setEquipmentLibrary] = useState<OrganizationEquipmentLibraryItem[]>([])
+  const [materialLibrary, setMaterialLibrary] = useState<OrganizationMaterialLibraryItem[]>([])
   const [estimateForm, setEstimateForm] = useState<EstimateFormState | null>(null)
   const [trackingForm, setTrackingForm] = useState<TrackingFormState | null>(null)
   const [customUnits, setCustomUnits] = useState<string[]>([])
-  const [selectedMaterialPreset, setSelectedMaterialPreset] = useState('')
-  const [selectedEquipmentPreset, setSelectedEquipmentPreset] = useState('')
+  const [selectedEmployeePresetId, setSelectedEmployeePresetId] = useState('')
+  const [selectedMaterialPresetId, setSelectedMaterialPresetId] = useState('')
+  const [selectedEquipmentPresetId, setSelectedEquipmentPresetId] = useState('')
+  const [isCompanyLibraryOpen, setIsCompanyLibraryOpen] = useState(false)
+  const [isLibrarySaving, setIsLibrarySaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [screenError, setScreenError] = useState<string | null>(null)
+
+  const loadCompanyLibraries = useCallback(async (organizationId: string) => {
+    const [nextEmployees, nextEquipment, nextMaterials] = await Promise.all([
+      fetchOrganizationEmployeeLibrary(organizationId),
+      fetchOrganizationEquipmentLibrary(organizationId),
+      fetchOrganizationMaterialLibrary(organizationId),
+    ])
+
+    setEmployeeLibrary(nextEmployees)
+    setEquipmentLibrary(nextEquipment)
+    setMaterialLibrary(nextMaterials)
+  }, [])
 
   const loadItem = useCallback(async () => {
     if (!projectId || !itemId) {
@@ -105,8 +137,19 @@ export const ProjectItemPage = () => {
         fetchProjectItemMetric(itemId),
       ])
 
+      if (nextProject?.organization_id) {
+        await loadCompanyLibraries(nextProject.organization_id)
+      } else {
+        setEmployeeLibrary([])
+        setEquipmentLibrary([])
+        setMaterialLibrary([])
+      }
+
       setProject(nextProject)
       setItem(nextItem)
+      setSelectedEmployeePresetId('')
+      setSelectedMaterialPresetId('')
+      setSelectedEquipmentPresetId('')
 
       if (nextItem) {
         setEstimateForm(toEstimateFormState(nextItem))
@@ -119,7 +162,7 @@ export const ProjectItemPage = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [itemId, projectId])
+  }, [itemId, loadCompanyLibraries, projectId])
 
   useEffect(() => {
     void loadItem()
@@ -327,34 +370,144 @@ export const ProjectItemPage = () => {
     }
   }
 
+  const getProjectOrganizationId = () => {
+    if (!project?.organization_id) {
+      throw new Error('Project organization is unavailable')
+    }
+
+    return project.organization_id
+  }
+
+  const runCompanyLibraryMutation = async (mutation: (organizationId: string) => Promise<void>) => {
+    setIsLibrarySaving(true)
+    setScreenError(null)
+
+    try {
+      const organizationId = getProjectOrganizationId()
+      await mutation(organizationId)
+      await loadCompanyLibraries(organizationId)
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error ? caughtError.message : 'Unable to update company library'
+      setScreenError(message)
+      throw caughtError
+    } finally {
+      setIsLibrarySaving(false)
+    }
+  }
+
+  const handleCreateEmployeeLibraryItem = async (draft: {
+    hourlyRate: number
+    name: string
+    role: string
+  }) => {
+    await runCompanyLibraryMutation(async (organizationId) => {
+      await createOrganizationEmployeeLibraryItem({
+        organization_id: organizationId,
+        name: draft.name,
+        role: draft.role || null,
+        hourly_rate: draft.hourlyRate,
+      })
+    })
+  }
+
+  const handleDeleteEmployeeLibraryItem = async (itemIdToDelete: string) => {
+    await runCompanyLibraryMutation(async () => {
+      await deleteOrganizationEmployeeLibraryItem(itemIdToDelete)
+    })
+  }
+
+  const handleCreateEquipmentLibraryItem = async (draft: { dailyRate: number; name: string }) => {
+    await runCompanyLibraryMutation(async (organizationId) => {
+      await createOrganizationEquipmentLibraryItem({
+        organization_id: organizationId,
+        name: draft.name,
+        daily_rate: draft.dailyRate,
+      })
+    })
+  }
+
+  const handleDeleteEquipmentLibraryItem = async (itemIdToDelete: string) => {
+    await runCompanyLibraryMutation(async () => {
+      await deleteOrganizationEquipmentLibraryItem(itemIdToDelete)
+    })
+  }
+
+  const handleCreateMaterialLibraryItem = async (draft: {
+    costPerUnit: number
+    name: string
+    unit: string
+  }) => {
+    await runCompanyLibraryMutation(async (organizationId) => {
+      await createOrganizationMaterialLibraryItem({
+        organization_id: organizationId,
+        name: draft.name,
+        unit: draft.unit,
+        cost_per_unit: draft.costPerUnit,
+      })
+    })
+  }
+
+  const handleDeleteMaterialLibraryItem = async (itemIdToDelete: string) => {
+    await runCompanyLibraryMutation(async () => {
+      await deleteOrganizationMaterialLibraryItem(itemIdToDelete)
+    })
+  }
+
   const handleApplyMaterialPreset = (value: string) => {
-    if (!estimateForm) {
+    if (value === '__manage__') {
+      setIsCompanyLibraryOpen(true)
       return
     }
 
-    setSelectedMaterialPreset(value)
+    setSelectedMaterialPresetId(value)
 
-    const nextPreset = materialLibraryOptions.find((preset) => preset.label === value)
+    const nextPreset = materialLibrary.find((preset) => preset.id === value)
 
     if (!nextPreset) {
       return
     }
 
-    setEstimateForm((current) =>
+    if (estimateOnlyMode) {
+      if (!estimateForm) {
+        return
+      }
+
+      setEstimateForm((current) =>
+        current
+          ? {
+              ...current,
+              unit: nextPreset.unit.toUpperCase(),
+              materialCostPerUnit: String(nextPreset.cost_per_unit),
+            }
+          : current,
+      )
+      return
+    }
+
+    if (!trackingForm) {
+      return
+    }
+
+    setTrackingForm((current) =>
       current
         ? {
             ...current,
-            unit: nextPreset.unit,
-            materialCostPerUnit: String(nextPreset.costPerUnit),
+            actualMaterialCostPerUnit: String(nextPreset.cost_per_unit),
           }
         : current,
     )
   }
 
-  const handleApplyEquipmentPreset = (value: string) => {
-    setSelectedEquipmentPreset(value)
+  const handleApplyEmployeePreset = (value: string) => {
+    if (value === '__manage__') {
+      setIsCompanyLibraryOpen(true)
+      return
+    }
 
-    const nextPreset = equipmentLibraryOptions.find((preset) => preset.label === value)
+    setSelectedEmployeePresetId(value)
+
+    const nextPreset = employeeLibrary.find((preset) => preset.id === value)
 
     if (!nextPreset) {
       return
@@ -362,13 +515,39 @@ export const ProjectItemPage = () => {
 
     if (estimateOnlyMode) {
       setEstimateForm((current) =>
-        current ? { ...current, equipmentRate: String(nextPreset.rate) } : current,
+        current ? { ...current, laborRate: String(nextPreset.hourly_rate) } : current,
       )
       return
     }
 
     setTrackingForm((current) =>
-      current ? { ...current, actualEquipmentRate: String(nextPreset.rate) } : current,
+      current ? { ...current, actualLaborRate: String(nextPreset.hourly_rate) } : current,
+    )
+  }
+
+  const handleApplyEquipmentPreset = (value: string) => {
+    if (value === '__manage__') {
+      setIsCompanyLibraryOpen(true)
+      return
+    }
+
+    setSelectedEquipmentPresetId(value)
+
+    const nextPreset = equipmentLibrary.find((preset) => preset.id === value)
+
+    if (!nextPreset) {
+      return
+    }
+
+    if (estimateOnlyMode) {
+      setEstimateForm((current) =>
+        current ? { ...current, equipmentRate: String(nextPreset.daily_rate) } : current,
+      )
+      return
+    }
+
+    setTrackingForm((current) =>
+      current ? { ...current, actualEquipmentRate: String(nextPreset.daily_rate) } : current,
     )
   }
 
@@ -393,6 +572,15 @@ export const ProjectItemPage = () => {
           </p>
         </div>
         <div className="project-header-actions">
+          {project?.organization_id ? (
+            <button
+              className="secondary-button"
+              onClick={() => setIsCompanyLibraryOpen((current) => !current)}
+              type="button"
+            >
+              {isCompanyLibraryOpen ? 'Hide company library' : 'Manage company library'}
+            </button>
+          ) : null}
           {project?.status ? <StatusBadge status={project.status} /> : null}
         </div>
       </header>
@@ -425,6 +613,22 @@ export const ProjectItemPage = () => {
         />
       </section>
 
+      {project?.organization_id && isCompanyLibraryOpen ? (
+        <CompanyLibraryPanel
+          employees={employeeLibrary}
+          equipment={equipmentLibrary}
+          isBusy={isLibrarySaving}
+          materials={materialLibrary}
+          onCreateEmployee={handleCreateEmployeeLibraryItem}
+          onCreateEquipment={handleCreateEquipmentLibraryItem}
+          onCreateMaterial={handleCreateMaterialLibraryItem}
+          onDeleteEmployee={handleDeleteEmployeeLibraryItem}
+          onDeleteEquipment={handleDeleteEquipmentLibraryItem}
+          onDeleteMaterial={handleDeleteMaterialLibraryItem}
+          unitOptions={unitOptions}
+        />
+      ) : null}
+
       {isLoading || !item || !project ? (
         <article className="panel">
           <div className="panel-empty">Loading scope item…</div>
@@ -436,7 +640,7 @@ export const ProjectItemPage = () => {
               <div className="item-detail-section-heading">
                 <div>
                   <h2>Quantity + material</h2>
-                  <p>Set the takeoff, unit, and material pricing for this terminal item.</p>
+                  <p>Set the takeoff, unit, and company material pricing for this terminal item.</p>
                 </div>
                 <strong>{formatCurrency(estimateDerived?.materialCost)}</strong>
               </div>
@@ -484,18 +688,23 @@ export const ProjectItemPage = () => {
                   </select>
                 </label>
                 <label>
-                  Common material item
+                  Company material
                   <select
                     className="item-detail-select"
                     onChange={(event) => handleApplyMaterialPreset(event.target.value)}
-                    value={selectedMaterialPreset}
+                    value={selectedMaterialPresetId}
                   >
-                    <option value="">Select a common item</option>
-                    {materialLibraryOptions.map((preset) => (
-                      <option key={preset.label} value={preset.label}>
-                        {preset.label}
+                    <option value="">
+                      {materialLibrary.length === 0
+                        ? 'No company materials yet'
+                        : 'Select company material'}
+                    </option>
+                    {materialLibrary.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
                       </option>
                     ))}
+                    <option value="__manage__">+ Manage company library</option>
                   </select>
                 </label>
                 <label>
@@ -525,11 +734,32 @@ export const ProjectItemPage = () => {
               <div className="item-detail-section-heading">
                 <div>
                   <h2>Labor</h2>
-                  <p>Use a blended crew rate here until employee-level entry is added.</p>
+                  <p>Pick a company labor prefill or override the hourly rate for this item.</p>
                 </div>
                 <strong>{formatCurrency(estimateDerived?.laborCost)}</strong>
               </div>
               <div className="item-detail-grid">
+                <label>
+                  Company labor prefill
+                  <select
+                    className="item-detail-select"
+                    onChange={(event) => handleApplyEmployeePreset(event.target.value)}
+                    value={selectedEmployeePresetId}
+                  >
+                    <option value="">
+                      {employeeLibrary.length === 0
+                        ? 'No company labor prefills yet'
+                        : 'Select labor prefill'}
+                    </option>
+                    {employeeLibrary.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name}
+                        {employee.role ? ` · ${employee.role}` : ''}
+                      </option>
+                    ))}
+                    <option value="__manage__">+ Manage company library</option>
+                  </select>
+                </label>
                 <label>
                   Hours
                   <input
@@ -565,24 +795,29 @@ export const ProjectItemPage = () => {
               <div className="item-detail-section-heading">
                 <div>
                   <h2>Equipment</h2>
-                  <p>Use the starter library to seed a daily rate, then adjust as needed.</p>
+                  <p>Use company equipment defaults to seed a daily rate, then adjust as needed.</p>
                 </div>
                 <strong>{formatCurrency(estimateDerived?.equipmentCost)}</strong>
               </div>
               <div className="item-detail-grid">
                 <label>
-                  Common equipment
+                  Company equipment
                   <select
                     className="item-detail-select"
                     onChange={(event) => handleApplyEquipmentPreset(event.target.value)}
-                    value={selectedEquipmentPreset}
+                    value={selectedEquipmentPresetId}
                   >
-                    <option value="">Select a common piece</option>
-                    {equipmentLibraryOptions.map((preset) => (
-                      <option key={preset.label} value={preset.label}>
-                        {preset.label}
+                    <option value="">
+                      {equipmentLibrary.length === 0
+                        ? 'No company equipment yet'
+                        : 'Select company equipment'}
+                    </option>
+                    {equipmentLibrary.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
                       </option>
                     ))}
+                    <option value="__manage__">+ Manage company library</option>
                   </select>
                 </label>
                 <label>
@@ -690,7 +925,7 @@ export const ProjectItemPage = () => {
               <div className="item-detail-section-heading">
                 <div>
                   <h2>Quantity + material</h2>
-                  <p>Track actual installed quantity and the realized material cost per unit.</p>
+                  <p>Track actual installed quantity and the realized company material cost per unit.</p>
                 </div>
                 <strong>{formatCurrency(trackingDerived?.actualMaterialCost)}</strong>
               </div>
@@ -714,6 +949,26 @@ export const ProjectItemPage = () => {
                 <label>
                   Unit of measure
                   <input disabled type="text" value={item.unit ?? 'EA'} />
+                </label>
+                <label>
+                  Company material
+                  <select
+                    className="item-detail-select"
+                    onChange={(event) => handleApplyMaterialPreset(event.target.value)}
+                    value={selectedMaterialPresetId}
+                  >
+                    <option value="">
+                      {materialLibrary.length === 0
+                        ? 'No company materials yet'
+                        : 'Select company material'}
+                    </option>
+                    {materialLibrary.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
+                      </option>
+                    ))}
+                    <option value="__manage__">+ Manage company library</option>
+                  </select>
                 </label>
                 <label>
                   Material cost / unit
@@ -742,11 +997,32 @@ export const ProjectItemPage = () => {
               <div className="item-detail-section-heading">
                 <div>
                   <h2>Labor</h2>
-                  <p>Use total hours and a blended rate for this prototype detail page.</p>
+                  <p>Pick a company labor prefill or override the realized hourly rate.</p>
                 </div>
                 <strong>{formatCurrency(trackingDerived?.actualLaborCost)}</strong>
               </div>
               <div className="item-detail-grid">
+                <label>
+                  Company labor prefill
+                  <select
+                    className="item-detail-select"
+                    onChange={(event) => handleApplyEmployeePreset(event.target.value)}
+                    value={selectedEmployeePresetId}
+                  >
+                    <option value="">
+                      {employeeLibrary.length === 0
+                        ? 'No company labor prefills yet'
+                        : 'Select labor prefill'}
+                    </option>
+                    {employeeLibrary.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name}
+                        {employee.role ? ` · ${employee.role}` : ''}
+                      </option>
+                    ))}
+                    <option value="__manage__">+ Manage company library</option>
+                  </select>
+                </label>
                 <label>
                   Actual labor hours
                   <input
@@ -786,24 +1062,29 @@ export const ProjectItemPage = () => {
               <div className="item-detail-section-heading">
                 <div>
                   <h2>Equipment</h2>
-                  <p>The starter library seeds a daily cost until multi-equipment rows are added.</p>
+                  <p>Use company equipment defaults until multi-equipment rows are added.</p>
                 </div>
                 <strong>{formatCurrency(trackingDerived?.actualEquipmentCost)}</strong>
               </div>
               <div className="item-detail-grid">
                 <label>
-                  Common equipment
+                  Company equipment
                   <select
                     className="item-detail-select"
                     onChange={(event) => handleApplyEquipmentPreset(event.target.value)}
-                    value={selectedEquipmentPreset}
+                    value={selectedEquipmentPresetId}
                   >
-                    <option value="">Select a common piece</option>
-                    {equipmentLibraryOptions.map((preset) => (
-                      <option key={preset.label} value={preset.label}>
-                        {preset.label}
+                    <option value="">
+                      {equipmentLibrary.length === 0
+                        ? 'No company equipment yet'
+                        : 'Select company equipment'}
+                    </option>
+                    {equipmentLibrary.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
                       </option>
                     ))}
+                    <option value="__manage__">+ Manage company library</option>
                   </select>
                 </label>
                 <label>

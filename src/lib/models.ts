@@ -1,6 +1,15 @@
-import type { Tables, TablesUpdate } from './database.types'
+import type { Tables, TablesInsert, TablesUpdate } from './database.types'
 
 export type Organization = Tables<'organizations'>
+export type OrganizationEmployeeLibraryItem = Tables<'organization_employee_library'>
+export type OrganizationEmployeeLibraryItemInsert = TablesInsert<'organization_employee_library'>
+export type OrganizationEmployeeLibraryItemUpdate = TablesUpdate<'organization_employee_library'>
+export type OrganizationEquipmentLibraryItem = Tables<'organization_equipment_library'>
+export type OrganizationEquipmentLibraryItemInsert = TablesInsert<'organization_equipment_library'>
+export type OrganizationEquipmentLibraryItemUpdate = TablesUpdate<'organization_equipment_library'>
+export type OrganizationMaterialLibraryItem = Tables<'organization_material_library'>
+export type OrganizationMaterialLibraryItemInsert = TablesInsert<'organization_material_library'>
+export type OrganizationMaterialLibraryItemUpdate = TablesUpdate<'organization_material_library'>
 export type Profile = Tables<'profiles'>
 export type ProjectSummary = Tables<'project_summary'>
 export type ProjectItemMetric = Tables<'project_item_metrics'>

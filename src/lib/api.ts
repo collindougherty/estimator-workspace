@@ -4,6 +4,15 @@ import { supabase } from './supabase'
 import type {
   ContractorPreset,
   Organization,
+  OrganizationEmployeeLibraryItem,
+  OrganizationEmployeeLibraryItemInsert,
+  OrganizationEmployeeLibraryItemUpdate,
+  OrganizationEquipmentLibraryItem,
+  OrganizationEquipmentLibraryItemInsert,
+  OrganizationEquipmentLibraryItemUpdate,
+  OrganizationMaterialLibraryItem,
+  OrganizationMaterialLibraryItemInsert,
+  OrganizationMaterialLibraryItemUpdate,
   PresetWbsItem,
   Profile,
   ProjectEstimateItemUpdate,
@@ -60,6 +69,148 @@ export const fetchOrganizations = async (): Promise<Organization[]> => {
 
   throwOnError(error)
   return data ?? []
+}
+
+export const fetchOrganizationEmployeeLibrary = async (
+  organizationId: string,
+): Promise<OrganizationEmployeeLibraryItem[]> => {
+  const { data, error } = await supabase
+    .from('organization_employee_library')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('name', { ascending: true })
+
+  throwOnError(error)
+  return data ?? []
+}
+
+export const createOrganizationEmployeeLibraryItem = async (
+  payload: OrganizationEmployeeLibraryItemInsert,
+): Promise<OrganizationEmployeeLibraryItem> => {
+  const { data, error } = await supabase
+    .from('organization_employee_library')
+    .insert(payload)
+    .select('*')
+    .single()
+
+  throwOnError(error)
+  if (!data) {
+    throw new Error('Unable to create employee library item')
+  }
+  return data
+}
+
+export const updateOrganizationEmployeeLibraryItem = async (
+  itemId: string,
+  patch: OrganizationEmployeeLibraryItemUpdate,
+) => {
+  const { error } = await supabase
+    .from('organization_employee_library')
+    .update(patch)
+    .eq('id', itemId)
+
+  throwOnError(error)
+}
+
+export const deleteOrganizationEmployeeLibraryItem = async (itemId: string) => {
+  const { error } = await supabase.from('organization_employee_library').delete().eq('id', itemId)
+  throwOnError(error)
+}
+
+export const fetchOrganizationEquipmentLibrary = async (
+  organizationId: string,
+): Promise<OrganizationEquipmentLibraryItem[]> => {
+  const { data, error } = await supabase
+    .from('organization_equipment_library')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('name', { ascending: true })
+
+  throwOnError(error)
+  return data ?? []
+}
+
+export const createOrganizationEquipmentLibraryItem = async (
+  payload: OrganizationEquipmentLibraryItemInsert,
+): Promise<OrganizationEquipmentLibraryItem> => {
+  const { data, error } = await supabase
+    .from('organization_equipment_library')
+    .insert(payload)
+    .select('*')
+    .single()
+
+  throwOnError(error)
+  if (!data) {
+    throw new Error('Unable to create equipment library item')
+  }
+  return data
+}
+
+export const updateOrganizationEquipmentLibraryItem = async (
+  itemId: string,
+  patch: OrganizationEquipmentLibraryItemUpdate,
+) => {
+  const { error } = await supabase
+    .from('organization_equipment_library')
+    .update(patch)
+    .eq('id', itemId)
+
+  throwOnError(error)
+}
+
+export const deleteOrganizationEquipmentLibraryItem = async (itemId: string) => {
+  const { error } = await supabase
+    .from('organization_equipment_library')
+    .delete()
+    .eq('id', itemId)
+
+  throwOnError(error)
+}
+
+export const fetchOrganizationMaterialLibrary = async (
+  organizationId: string,
+): Promise<OrganizationMaterialLibraryItem[]> => {
+  const { data, error } = await supabase
+    .from('organization_material_library')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('name', { ascending: true })
+
+  throwOnError(error)
+  return data ?? []
+}
+
+export const createOrganizationMaterialLibraryItem = async (
+  payload: OrganizationMaterialLibraryItemInsert,
+): Promise<OrganizationMaterialLibraryItem> => {
+  const { data, error } = await supabase
+    .from('organization_material_library')
+    .insert(payload)
+    .select('*')
+    .single()
+
+  throwOnError(error)
+  if (!data) {
+    throw new Error('Unable to create material library item')
+  }
+  return data
+}
+
+export const updateOrganizationMaterialLibraryItem = async (
+  itemId: string,
+  patch: OrganizationMaterialLibraryItemUpdate,
+) => {
+  const { error } = await supabase
+    .from('organization_material_library')
+    .update(patch)
+    .eq('id', itemId)
+
+  throwOnError(error)
+}
+
+export const deleteOrganizationMaterialLibraryItem = async (itemId: string) => {
+  const { error } = await supabase.from('organization_material_library').delete().eq('id', itemId)
+  throwOnError(error)
 }
 
 export const fetchPresets = async (): Promise<ContractorPreset[]> => {
