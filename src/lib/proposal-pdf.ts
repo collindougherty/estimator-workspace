@@ -1,5 +1,4 @@
 import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 
 import { formatCurrency, formatDate, formatNumber } from './formatters'
 import type { ProjectItemMetric, ProjectSummary } from './models'
@@ -18,18 +17,43 @@ type ProposalSection = {
   total: number
 }
 
+type ProposalTableColumn = {
+  header: string
+  width: number
+  align: 'left' | 'right'
+}
+
 const PAGE_WIDTH = 612
 const PAGE_HEIGHT = 792
 const PAGE_MARGIN = 40
 const HEADER_BASE_HEIGHT = 126
 const HEADER_CALLOUT_WIDTH = 146
+const HEADER_CALLOUT_HEIGHT = 92
 const HEADER_CALLOUT_GAP = 24
 const DETAIL_STRIP_HEIGHT = 48
+const TABLE_TOP_GAP = 10
+const TABLE_HEADER_HEIGHT = 32
+const SECTION_ROW_HEIGHT = 26
+const SUBTOTAL_ROW_HEIGHT = 24
+const ITEM_FONT_SIZE = 9.5
+const ITEM_MIN_ROW_HEIGHT = 24
+const ITEM_LINE_HEIGHT = 11
+const ITEM_CELL_PADDING_X = 12
+const ITEM_CELL_PADDING_Y = 6
 const FOOTER_LINE_Y = 770
 const FOOTER_TEXT_Y = 784
-const ACCEPTANCE_TOP_GAP = 12
-const ACCEPTANCE_LINE_Y_OFFSET = 15
-const TABLE_BOTTOM_MARGIN = PAGE_HEIGHT - FOOTER_LINE_Y + 38
+const TABLE_END_Y = PAGE_HEIGHT - 60
+const ACCEPTANCE_TOP_GAP = 16
+const ACCEPTANCE_LINE_Y_OFFSET = 16
+const ACCEPTANCE_BLOCK_HEIGHT = 36
+const TABLE_COLUMNS: ProposalTableColumn[] = [
+  { header: 'Scope item', width: 302, align: 'left' },
+  { header: 'Qty', width: 72, align: 'right' },
+  { header: 'Unit', width: 68, align: 'left' },
+  { header: 'Amount', width: 90, align: 'right' },
+]
+const TABLE_WIDTH = TABLE_COLUMNS.reduce((sum, column) => sum + column.width, 0)
+const SUBTOTAL_SPLIT_X = PAGE_MARGIN + TABLE_COLUMNS[0].width + TABLE_COLUMNS[1].width + TABLE_COLUMNS[2].width
 const COLORS = {
   ink: [22, 35, 22] as RgbColor,
   brand: [47, 125, 50] as RgbColor,
@@ -184,7 +208,7 @@ const drawHeaderCallout = ({
     x,
     y,
     width,
-    height: 86,
+    height: HEADER_CALLOUT_HEIGHT,
     fillColor: [28, 46, 29],
     borderColor: COLORS.brand,
   })
@@ -200,20 +224,32 @@ const drawHeaderCallout = ({
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
   doc.setTextColor(255, 255, 255)
-  doc.text(preparedDate, x + 18, y + 44)
+  doc.text(preparedDate, x + 18, y + 46)
 
   doc.setDrawColor(84, 109, 85)
   doc.setLineWidth(1)
-  doc.line(x + 18, y + 54, x + width - 18, y + 54)
+  doc.line(x + 18, y + 58, x + width - 18, y + 58)
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
   doc.setTextColor(...COLORS.subtle)
-  doc.text('EST. TOTAL', x + 18, y + 69)
+  doc.text('EST. TOTAL', x + 18, y + 70)
 
-  doc.setFontSize(19)
+  const amountText = formatCurrency(estimatedTotal)
+  let amountFontSize = 22
+
+  while (amountFontSize > 16) {
+    doc.setFontSize(amountFontSize)
+
+    if (doc.getTextWidth(amountText) <= width - 36) {
+      break
+    }
+
+    amountFontSize -= 1
+  }
+
   doc.setTextColor(255, 255, 255)
-  doc.text(formatCurrency(estimatedTotal), x + 18, y + 85)
+  doc.text(amountText, x + 18, y + HEADER_CALLOUT_HEIGHT - 6)
 }
 
 const drawAcceptanceStrip = ({
@@ -244,8 +280,8 @@ const drawAcceptanceStrip = ({
   doc.line(dateLineX, lineY, PAGE_WIDTH - PAGE_MARGIN, lineY)
 
   doc.setFontSize(8)
-  doc.text('Signature', PAGE_MARGIN, lineY + 12)
-  doc.text('Date', dateLineX, lineY + 12)
+  doc.text('Signature', PAGE_MARGIN, lineY + 14)
+  doc.text('Date', dateLineX, lineY + 14)
 }
 
 const addFooters = ({
@@ -274,6 +310,121 @@ const addFooters = ({
       { align: 'right' },
     )
   }
+}
+
+const getItemLabelLines = (doc: jsPDF, value: string) => {
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(ITEM_FONT_SIZE)
+  return doc.splitTextToSize(value, TABLE_COLUMNS[0].width - ITEM_CELL_PADDING_X * 2)
+}
+
+const getItemRowHeight = (doc: jsPDF, value: string) => {
+  const lines = getItemLabelLines(doc, value)
+  return Math.max(ITEM_MIN_ROW_HEIGHT, ITEM_CELL_PADDING_Y * 2 + lines.length * ITEM_LINE_HEIGHT)
+}
+
+const drawTableHeader = (doc: jsPDF, y: number) => {
+  doc.setFillColor(...COLORS.ink)
+  doc.setDrawColor(...COLORS.ink)
+  doc.setLineWidth(0.8)
+  doc.rect(PAGE_MARGIN, y, TABLE_WIDTH, TABLE_HEADER_HEIGHT, 'FD')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(255, 255, 255)
+
+  let cursorX = PAGE_MARGIN
+
+  TABLE_COLUMNS.forEach((column) => {
+    const textX = column.align === 'right' ? cursorX + column.width - 12 : cursorX + 12
+
+    doc.text(column.header, textX, y + 21, {
+      align: column.align === 'right' ? 'right' : 'left',
+    })
+
+    cursorX += column.width
+  })
+}
+
+const drawSectionRow = (doc: jsPDF, y: number, title: string) => {
+  doc.setFillColor(...COLORS.brandSoft)
+  doc.setDrawColor(...COLORS.border)
+  doc.setLineWidth(0.45)
+  doc.rect(PAGE_MARGIN, y, TABLE_WIDTH, SECTION_ROW_HEIGHT, 'FD')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10.5)
+  doc.setTextColor(...COLORS.text)
+  doc.text(title, PAGE_MARGIN + 12, y + 17)
+}
+
+const drawItemRow = ({
+  doc,
+  y,
+  item,
+  rowHeight,
+  fillColor,
+}: {
+  doc: jsPDF
+  y: number
+  item: ProjectItemMetric
+  rowHeight: number
+  fillColor: RgbColor
+}) => {
+  const labelText = getTextValue(item.item_name, 'Scope item')
+  const labelLines = getItemLabelLines(doc, labelText)
+  const quantityText = formatNumber(item.quantity)
+  const unitText = getTextValue(item.unit, '')
+  const amountText = formatCurrency(item.estimated_total_cost)
+
+  let cursorX = PAGE_MARGIN
+
+  TABLE_COLUMNS.forEach((column) => {
+    doc.setFillColor(...fillColor)
+    doc.setDrawColor(...COLORS.border)
+    doc.setLineWidth(0.45)
+    doc.rect(cursorX, y, column.width, rowHeight, 'FD')
+    cursorX += column.width
+  })
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(ITEM_FONT_SIZE)
+  doc.setTextColor(...COLORS.text)
+  doc.text(labelLines, PAGE_MARGIN + ITEM_CELL_PADDING_X, y + ITEM_CELL_PADDING_Y + 7)
+
+  const centeredTextY = y + rowHeight / 2 + 3
+  const quantityX = PAGE_MARGIN + TABLE_COLUMNS[0].width + TABLE_COLUMNS[1].width - 12
+  const unitX = PAGE_MARGIN + TABLE_COLUMNS[0].width + TABLE_COLUMNS[1].width + 12
+  const amountX = PAGE_MARGIN + TABLE_WIDTH - 12
+
+  doc.text(quantityText, quantityX, centeredTextY, { align: 'right' })
+  doc.text(unitText, unitX, centeredTextY)
+  doc.text(amountText, amountX, centeredTextY, { align: 'right' })
+}
+
+const drawSubtotalRow = (doc: jsPDF, y: number, total: number) => {
+  doc.setFillColor(...COLORS.panel)
+  doc.setDrawColor(...COLORS.border)
+  doc.setLineWidth(0.45)
+  doc.rect(PAGE_MARGIN, y, TABLE_WIDTH, SUBTOTAL_ROW_HEIGHT, 'FD')
+
+  doc.setDrawColor(...COLORS.brand)
+  doc.setLineWidth(0.8)
+  doc.line(PAGE_MARGIN, y, PAGE_MARGIN + TABLE_WIDTH, y)
+
+  doc.setDrawColor(...COLORS.border)
+  doc.setLineWidth(0.45)
+  doc.line(SUBTOTAL_SPLIT_X, y, SUBTOTAL_SPLIT_X, y + SUBTOTAL_ROW_HEIGHT)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10.5)
+  doc.setTextColor(...COLORS.muted)
+  doc.text('Section subtotal', SUBTOTAL_SPLIT_X - 12, y + 17, { align: 'right' })
+
+  doc.setTextColor(...COLORS.text)
+  doc.text(formatCurrency(total), PAGE_MARGIN + TABLE_WIDTH - 12, y + 17, {
+    align: 'right',
+  })
 }
 
 export const createProposalPdf = ({
@@ -408,101 +559,89 @@ export const createProposalPdf = ({
     ],
   })
 
-  autoTable(doc, {
-    startY: detailsBottom + 12,
-    theme: 'grid',
-    margin: {
-      left: PAGE_MARGIN,
-      right: PAGE_MARGIN,
-      bottom: TABLE_BOTTOM_MARGIN,
-    },
-    styles: {
-      font: 'helvetica',
-      fontSize: 10,
-      textColor: COLORS.text,
-      lineColor: COLORS.border,
-      lineWidth: 0.45,
-      cellPadding: 5.5,
-      overflow: 'linebreak',
-      valign: 'middle',
-    },
-    headStyles: {
-      fillColor: COLORS.ink,
-      textColor: [255, 255, 255],
-      fontSize: 10,
-      fontStyle: 'bold',
-      lineColor: COLORS.ink,
-      lineWidth: 0.8,
-      cellPadding: 6.5,
-    },
-    bodyStyles: {
-      textColor: COLORS.text,
-    },
-    alternateRowStyles: {
-      fillColor: COLORS.surfaceAlt,
-    },
-    columnStyles: {
-      0: { cellWidth: 302 },
-      1: { cellWidth: 72, halign: 'right' },
-      2: { cellWidth: 68, halign: 'left' },
-      3: { cellWidth: 90, halign: 'right' },
-    },
-    head: [['Scope item', 'Qty', 'Unit', 'Amount']],
-    body: groupedSections.flatMap((section) => [
-      [
-        {
-          content: section.title,
-          colSpan: 4,
-          styles: {
-            fillColor: COLORS.brandSoft,
-            textColor: COLORS.text,
-            fontStyle: 'bold',
-            fontSize: 10,
-            cellPadding: 6,
-          },
-        },
-      ],
-      ...section.rows.map((item) => [
-        item.item_name ?? 'Scope item',
-        formatNumber(item.quantity),
-        item.unit ?? '',
-        formatCurrency(item.estimated_total_cost),
-      ]),
-      [
-        {
-          content: 'Section subtotal',
-          colSpan: 3,
-          styles: {
-            halign: 'right',
-            fontStyle: 'bold',
-            fillColor: COLORS.surface,
-            textColor: COLORS.muted,
-            cellPadding: 5.5,
-          },
-        },
-        {
-          content: formatCurrency(section.total),
-          styles: {
-            halign: 'right',
-            fontStyle: 'bold',
-            fillColor: COLORS.surface,
-            textColor: COLORS.text,
-            cellPadding: 5.5,
-          },
-        },
-      ],
-    ]),
-  })
+  let tableY = detailsBottom + TABLE_TOP_GAP
 
-  const tableBottom = (doc as jsPDF & {
-    lastAutoTable?: {
-      finalY?: number
+  const startNewTablePage = () => {
+    doc.addPage()
+    tableY = PAGE_MARGIN
+    drawTableHeader(doc, tableY)
+    tableY += TABLE_HEADER_HEIGHT
+  }
+
+  const ensureTableSpace = (spaceNeeded: number) => {
+    if (tableY + spaceNeeded <= TABLE_END_Y) {
+      return
     }
-  }).lastAutoTable?.finalY
 
-  let acceptanceY = (tableBottom ?? detailsBottom + 12) + ACCEPTANCE_TOP_GAP
+    startNewTablePage()
+  }
 
-  if (acceptanceY + ACCEPTANCE_LINE_Y_OFFSET + 12 > FOOTER_LINE_Y - 6) {
+  drawTableHeader(doc, tableY)
+  tableY += TABLE_HEADER_HEIGHT
+
+  if (groupedSections.length === 0) {
+    const rowHeight = ITEM_MIN_ROW_HEIGHT
+
+    doc.setFillColor(...COLORS.surface)
+    doc.setDrawColor(...COLORS.border)
+    doc.setLineWidth(0.45)
+    doc.rect(PAGE_MARGIN, tableY, TABLE_WIDTH, rowHeight, 'FD')
+
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(ITEM_FONT_SIZE)
+    doc.setTextColor(...COLORS.muted)
+    doc.text('No included scope items yet.', PAGE_MARGIN + ITEM_CELL_PADDING_X, tableY + 16)
+
+    tableY += rowHeight
+  } else {
+    groupedSections.forEach((section) => {
+      const firstRowHeight = getItemRowHeight(
+        doc,
+        getTextValue(section.rows[0]?.item_name, 'Scope item'),
+      )
+      const compactSectionHeight = section.rows.reduce(
+        (sum, row) => sum + getItemRowHeight(doc, getTextValue(row.item_name, 'Scope item')),
+        SECTION_ROW_HEIGHT + SUBTOTAL_ROW_HEIGHT,
+      )
+      const sectionReservation = section.rows.length <= 3
+        ? compactSectionHeight
+        : SECTION_ROW_HEIGHT + firstRowHeight
+
+      ensureTableSpace(sectionReservation)
+      drawSectionRow(doc, tableY, section.title)
+      tableY += SECTION_ROW_HEIGHT
+
+      section.rows.forEach((item, index) => {
+        const labelText = getTextValue(item.item_name, 'Scope item')
+        const rowHeight = getItemRowHeight(doc, labelText)
+        const remainingRows = section.rows.slice(index)
+        const trailingReservation = remainingRows.length <= 2
+          ? remainingRows.reduce(
+            (sum, row) => sum + getItemRowHeight(doc, getTextValue(row.item_name, 'Scope item')),
+            SUBTOTAL_ROW_HEIGHT,
+          )
+          : rowHeight
+
+        ensureTableSpace(trailingReservation)
+        drawItemRow({
+          doc,
+          y: tableY,
+          item,
+          rowHeight,
+          fillColor: index % 2 === 0 ? COLORS.surface : COLORS.surfaceAlt,
+        })
+        tableY += rowHeight
+      })
+
+      ensureTableSpace(SUBTOTAL_ROW_HEIGHT)
+      drawSubtotalRow(doc, tableY, section.total)
+      tableY += SUBTOTAL_ROW_HEIGHT
+    })
+  }
+
+  let acceptanceY = tableY + ACCEPTANCE_TOP_GAP
+
+  if (acceptanceY + ACCEPTANCE_BLOCK_HEIGHT > FOOTER_LINE_Y - 6) {
     doc.addPage()
     acceptanceY = 72
   }
