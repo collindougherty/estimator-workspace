@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import './App.css'
 import { AuthProvider } from './hooks/AuthProvider'
@@ -42,11 +42,13 @@ const AppRouter = () => {
 }
 
 function App() {
+  const Router = import.meta.env.VITE_USE_HASH_ROUTER === 'true' ? HashRouter : BrowserRouter
+
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <Router>
         <AppRouter />
-      </BrowserRouter>
+      </Router>
     </AuthProvider>
   )
 }
