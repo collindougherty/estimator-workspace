@@ -403,7 +403,8 @@ export const DashboardPage = () => {
                 ) : group.projects.length === 0 ? (
                   <div className="panel-empty">No projects yet.</div>
                 ) : (
-                  <div className="project-list-shell">
+                  <>
+                    <div className="project-list-shell dashboard-project-table">
                     <table className="project-list-table">
                       <colgroup>
                         <col className="project-list-col-project" />
@@ -518,10 +519,122 @@ export const DashboardPage = () => {
                                ) : null}
                              </td>
                            </tr>
-                         ))}
+                        ))}
                       </tbody>
                     </table>
-                  </div>
+                    </div>
+                    <div className="dashboard-mobile-list">
+                      {group.projects.map((project) => (
+                        <article className="dashboard-mobile-card" key={`mobile-${project.project_id ?? project.name}`}>
+                          <div className="dashboard-mobile-card-header">
+                            <div className="dashboard-mobile-card-copy">
+                              {project.project_id ? (
+                                <Link
+                                  className="dashboard-mobile-card-link"
+                                  to={`/projects/${project.project_id}`}
+                                >
+                                  {project.name ?? 'Untitled project'}
+                                </Link>
+                              ) : (
+                                <span className="dashboard-mobile-card-link">
+                                  {project.name ?? 'Untitled project'}
+                                </span>
+                              )}
+                              <p>{project.customer_name ?? 'Customer pending'}</p>
+                              <p>{project.location ?? 'Location pending'}</p>
+                            </div>
+                            <div className="dashboard-mobile-card-amount">
+                              <strong>{formatCurrency(project.estimated_total_cost)}</strong>
+                              <span>Due {formatDate(project.bid_due_date)}</span>
+                            </div>
+                          </div>
+                          <div className="dashboard-mobile-card-meta">
+                            {project.status ? <StatusBadge status={project.status} /> : null}
+                            {project.status === 'active' ? (
+                              <span className="dashboard-mobile-chip">
+                                {formatCurrency(project.actual_total_cost)} actual
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="dashboard-mobile-card-controls">
+                            <div className="dashboard-mobile-card-status">
+                              {project.project_id ? (
+                                <select
+                                  aria-label={`Status for ${project.name ?? 'project'}`}
+                                  className={`status-select status-select-${project.status ?? 'draft'}`}
+                                  disabled={updatingProjectId === project.project_id}
+                                  onChange={(event) => {
+                                    void handleProjectStatusChange(
+                                      project.project_id ?? '',
+                                      event.target.value as ProjectStatus,
+                                    )
+                                  }}
+                                  value={project.status ?? 'draft'}
+                                >
+                                  {projectStatusOptions.map((status) => (
+                                    <option key={status} value={status}>
+                                      {projectStatusLabelMap[status]}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                project.status ? <StatusBadge status={project.status} /> : '—'
+                              )}
+                            </div>
+                            {project.project_id ? (
+                              <div
+                                className="project-row-actions dashboard-mobile-card-actions"
+                                ref={
+                                  actionMenuProjectId === project.project_id ? actionMenuRef : undefined
+                                }
+                              >
+                                <button
+                                  aria-expanded={actionMenuProjectId === project.project_id}
+                                  aria-label={`Actions for ${project.name ?? 'project'}`}
+                                  className="project-row-actions-button"
+                                  disabled={actioningProjectId === project.project_id}
+                                  onClick={() =>
+                                    setActionMenuProjectId((current) =>
+                                      current === project.project_id ? null : project.project_id,
+                                    )
+                                  }
+                                  type="button"
+                                >
+                                  •••
+                                </button>
+                                {actionMenuProjectId === project.project_id ? (
+                                  <div className="project-row-actions-menu">
+                                    {project.status !== 'archived' ? (
+                                      <button
+                                        className="project-row-actions-item"
+                                        disabled={actioningProjectId === project.project_id}
+                                        onClick={() => {
+                                          void handleArchiveProject(project.project_id ?? '')
+                                        }}
+                                        type="button"
+                                      >
+                                        Archive
+                                      </button>
+                                    ) : null}
+                                    <button
+                                      className="project-row-actions-item project-row-actions-item-danger"
+                                      disabled={actioningProjectId === project.project_id}
+                                      onClick={() => {
+                                        void handleDeleteProject(project.project_id ?? '')
+                                      }}
+                                      type="button"
+                                    >
+                                      Delete job
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </>
                 )}
               </article>
             ))}

@@ -147,6 +147,9 @@
 
 .back-link {
   display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-self: flex-start;
   align-items: center;
   gap: 6px;
   margin-bottom: 10px;
@@ -1098,5 +1101,566 @@
   .scope-picker-popover {
     width: min(100vw - 40px, 440px);
     right: -12px;
+  }
+}
+
+.app-screen {
+  min-height: 100dvh;
+  padding:
+    calc(28px + var(--safe-top))
+    calc(32px + var(--safe-right))
+    calc(40px + var(--safe-bottom))
+    calc(32px + var(--safe-left));
+}
+
+.loading-screen,
+.auth-screen {
+  min-height: 100dvh;
+  padding:
+    calc(24px + var(--safe-top))
+    calc(24px + var(--safe-right))
+    calc(24px + var(--safe-bottom))
+    calc(24px + var(--safe-left));
+}
+
+.project-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.project-meta-line span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.project-meta-line span + span::before {
+  content: '·';
+  margin-right: 10px;
+  color: rgba(100, 116, 139, 0.72);
+}
+
+.project-worksheet-header {
+  align-items: center;
+}
+
+.dashboard-mobile-list,
+.worksheet-mobile-shell {
+  display: none;
+}
+
+.worksheet-desktop-shell {
+  display: block;
+}
+
+.worksheet-mobile {
+  display: grid;
+  gap: 16px;
+}
+
+.worksheet-mobile-section {
+  display: grid;
+  gap: 12px;
+}
+
+.worksheet-mobile-section-header {
+  display: grid;
+  gap: 4px;
+  padding: 4px 4px 0;
+}
+
+.worksheet-mobile-section-header h3 {
+  font-size: 1rem;
+  color: var(--text-h);
+}
+
+.worksheet-mobile-section-header strong {
+  color: var(--text-h);
+  font-size: 1.05rem;
+}
+
+.worksheet-mobile-section-header > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.worksheet-mobile-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.worksheet-mobile-card {
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.worksheet-mobile-card-muted {
+  opacity: 0.72;
+}
+
+.worksheet-mobile-card-summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  cursor: pointer;
+}
+
+.worksheet-mobile-card-summary::-webkit-details-marker {
+  display: none;
+}
+
+.worksheet-mobile-card-summary::after {
+  content: '+';
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(241, 245, 249, 0.82);
+  color: var(--text-h);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.worksheet-mobile-card[open] .worksheet-mobile-card-summary::after {
+  content: '–';
+}
+
+.worksheet-mobile-card-summary-main {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.worksheet-mobile-card-summary-main strong {
+  color: var(--text-h);
+  line-height: 1.35;
+}
+
+.worksheet-mobile-card-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.worksheet-mobile-flag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.worksheet-mobile-card-total {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.worksheet-mobile-card-total span,
+.worksheet-mobile-card-total small,
+.worksheet-mobile-footer span,
+.worksheet-mobile-footer small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.worksheet-mobile-card-total strong,
+.worksheet-mobile-footer strong {
+  color: var(--text-h);
+  font-size: 1rem;
+}
+
+.worksheet-mobile-card-body {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 16px;
+}
+
+.worksheet-mobile-toggle,
+.worksheet-mobile-readonly-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(241, 245, 249, 0.7);
+}
+
+.worksheet-mobile-toggle span,
+.worksheet-mobile-readonly-row span {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.worksheet-mobile-toggle input {
+  width: 20px;
+  height: 20px;
+}
+
+.worksheet-mobile-bucket-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.worksheet-mobile-bucket {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.worksheet-mobile-bucket-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.worksheet-mobile-bucket-header h4 {
+  font-size: 0.92rem;
+  color: var(--text-h);
+}
+
+.worksheet-mobile-bucket-header span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.worksheet-mobile-input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.worksheet-mobile-input-grid-single {
+  grid-template-columns: 1fr;
+}
+
+.worksheet-mobile-reference {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.worksheet-mobile-footer {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 4px 0;
+}
+
+.dashboard-mobile-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+.dashboard-mobile-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-mobile-card-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-mobile-card-copy p {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.dashboard-mobile-card-link {
+  color: var(--text-h);
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.dashboard-mobile-card-link:hover {
+  color: var(--brand);
+}
+
+.dashboard-mobile-card-amount {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dashboard-mobile-card-amount strong {
+  color: var(--text-h);
+}
+
+.dashboard-mobile-card-amount span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.dashboard-mobile-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dashboard-mobile-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(241, 245, 249, 0.84);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.dashboard-mobile-card-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.dashboard-mobile-card-status .status-select {
+  min-height: 44px;
+}
+
+.dashboard-mobile-card-actions .project-row-actions-button {
+  width: 44px;
+  height: 44px;
+}
+
+@media (max-width: 780px) {
+  .app-screen {
+    padding:
+      calc(20px + var(--safe-top))
+      calc(20px + var(--safe-right))
+      calc(20px + var(--safe-bottom))
+      calc(20px + var(--safe-left));
+  }
+}
+
+@media (max-width: 600px) {
+  .app-screen {
+    gap: 14px;
+    padding:
+      calc(16px + var(--safe-top))
+      calc(16px + var(--safe-right))
+      calc(24px + var(--safe-bottom))
+      calc(16px + var(--safe-left));
+  }
+
+  .app-screen::before {
+    top: -10vh;
+    left: -28vw;
+    width: 74vw;
+    height: 74vw;
+    opacity: 0.72;
+  }
+
+  .app-screen::after {
+    top: 12vh;
+    right: -24vw;
+    width: 66vw;
+    height: 66vw;
+    opacity: 0.45;
+  }
+
+  .topbar-simple,
+  .project-header-simple {
+    padding: 0 2px 2px;
+  }
+
+  .topbar-heading {
+    gap: 8px;
+  }
+
+  .topbar-heading h1 {
+    font-size: clamp(2rem, 15vw, 2.8rem);
+  }
+
+  .topbar-subtitle {
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  .topbar-actions,
+  .project-header-actions {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .topbar-actions > .secondary-button,
+  .project-header-actions > .secondary-button {
+    flex: 1 1 0;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .project-header-copy {
+    display: grid;
+    gap: 6px;
+  }
+
+  .project-header-copy h1 {
+    font-size: clamp(2rem, 10vw, 2.4rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+  }
+
+  .project-meta-line {
+    gap: 6px 0;
+  }
+
+  .project-meta-line span {
+    width: 100%;
+  }
+
+  .project-meta-line span + span::before {
+    content: '';
+    margin-right: 0;
+  }
+
+  .panel,
+  .panel-table,
+  .panel-compact,
+  .loading-card,
+  .auth-form {
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .panel-large {
+    min-height: 0;
+  }
+
+  .panel-heading {
+    margin-bottom: 12px;
+  }
+
+  .section-count {
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.86rem;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .metric-card {
+    min-width: 0;
+    padding: 14px 12px;
+    gap: 6px;
+  }
+
+  .metric-card strong {
+    font-size: 1.25rem;
+  }
+
+  .metric-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+  }
+
+  .dashboard-project-table,
+  .worksheet-desktop-shell {
+    display: none;
+  }
+
+  .dashboard-mobile-list,
+  .worksheet-mobile-shell {
+    display: grid;
+    gap: 12px;
+  }
+
+  .project-worksheet-header {
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .project-worksheet-header .scope-picker {
+    width: 100%;
+  }
+
+  .project-worksheet-header .secondary-button {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .scope-picker-popover {
+    position: static;
+    width: 100%;
+    margin-top: 12px;
+    padding: 14px;
+    right: auto;
+  }
+
+  .scope-picker-option {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .scope-picker-form button {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .worksheet-mobile-card-total {
+    align-items: end;
+  }
+
+  .worksheet-mobile-input-grid,
+  .dashboard-mobile-card-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .worksheet-mobile-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .project-row-actions-menu {
+    min-width: 180px;
+  }
+
+  .stack-form input,
+  .stack-form textarea,
+  .stack-form select,
+  .toolbar-field select,
+  .auth-form input,
+  .estimate-bucket-field input,
+  .scope-picker-search input,
+  .scope-picker-form input,
+  .status-select {
+    font-size: 16px;
   }
 }

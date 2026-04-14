@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { devices, expect, test, type Page } from '@playwright/test'
 import { mkdirSync, readFileSync } from 'node:fs'
 
 const readLocalEnv = () => {
@@ -30,14 +30,19 @@ const readLocalEnv = () => {
 }
 
 const { demoEmail, demoPassword } = readLocalEnv()
+const iPhone13 = devices['iPhone 13']
 
-test('login, dashboard, and project detail render cleanly', async ({ page }) => {
-  mkdirSync('artifacts/iteration-7', { recursive: true })
-
+const signInDemoUser = async (page: Page) => {
   await page.goto('/login')
   await page.getByLabel('Email').fill(demoEmail)
   await page.getByLabel('Password').fill(demoPassword)
   await page.getByRole('button', { name: 'Sign in' }).click()
+}
+
+test('login, dashboard, and project detail render cleanly', async ({ page }) => {
+  mkdirSync('artifacts/iteration-7', { recursive: true })
+
+  await signInDemoUser(page)
 
   await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
   await expect(page.getByRole('link', { name: /Pine Court Storm Repair/i })).toBeVisible()
@@ -50,7 +55,9 @@ test('login, dashboard, and project detail render cleanly', async ({ page }) => 
   await expect(page).toHaveURL(/\/projects\//)
   await expect(page.getByRole('heading', { name: 'Pine Court Storm Repair' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Tracking' })).toBeVisible()
-  await expect(page.getByLabel('1.1.1 actual material cost')).toBeVisible()
+  await expect(
+    page.locator('.worksheet-desktop-shell').getByLabel('1.1.1 actual material cost'),
+  ).toBeVisible()
   await page.screenshot({
     path: 'artifacts/iteration-7/project-active.png',
     fullPage: true,
@@ -63,8 +70,12 @@ test('login, dashboard, and project detail render cleanly', async ({ page }) => 
   await expect(page).toHaveURL(/\/projects\//)
   await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Estimate' })).toBeVisible()
-  await expect(page.getByLabel('1.2.3 scope name')).toHaveValue('Architectural shingles')
-  await expect(page.getByLabel('1.2.3 material cost')).toBeVisible()
+  await expect(
+    page.locator('.worksheet-desktop-shell').getByLabel('1.2.3 scope name'),
+  ).toHaveValue('Architectural shingles')
+  await expect(
+    page.locator('.worksheet-desktop-shell').getByLabel('1.2.3 material cost'),
+  ).toBeVisible()
   await page.screenshot({
     path: 'artifacts/iteration-7/project-bidding.png',
     fullPage: true,
@@ -76,8 +87,58 @@ test('login, dashboard, and project detail render cleanly', async ({ page }) => 
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
 
-  await page.getByLabel('Email').fill(demoEmail)
-  await page.getByLabel('Password').fill(demoPassword)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await signInDemoUser(page)
   await expect(page.getByRole('link', { name: /Pine Court Storm Repair/i })).toBeVisible()
+})
+
+test.describe('iphone layout', () => {
+  test.use({
+    viewport: iPhone13.viewport,
+    userAgent: iPhone13.userAgent,
+    deviceScaleFactor: iPhone13.deviceScaleFactor,
+    isMobile: iPhone13.isMobile,
+    hasTouch: iPhone13.hasTouch,
+  })
+
+  test('dashboard and worksheet mobile layouts render cleanly', async ({ page }) => {
+    mkdirSync('artifacts/iteration-8-mobile', { recursive: true })
+
+    await signInDemoUser(page)
+
+    await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
+    await expect(page.locator('.dashboard-mobile-list').first()).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/iteration-8-mobile/dashboard-iphone13.png',
+      fullPage: true,
+    })
+
+    await page.getByRole('link', { name: /Pine Court Storm Repair/i }).click()
+    await expect(page.getByRole('heading', { name: 'Pine Court Storm Repair' })).toBeVisible()
+    await expect(page.locator('.worksheet-mobile-shell')).toBeVisible()
+    await page.locator('.worksheet-mobile-card-summary').first().click()
+    await expect(
+      page.locator('.worksheet-mobile-shell').getByLabel('1.1.1 actual material cost'),
+    ).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/iteration-8-mobile/project-tracking-iphone13.png',
+      fullPage: true,
+    })
+
+    await page.getByRole('link', { name: /Back/i }).click()
+    await expect(page.getByRole('link', { name: /Maple Street Roof Replacement/i })).toBeVisible()
+    await page.getByRole('link', { name: /Maple Street Roof Replacement/i }).click()
+    await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
+    await expect(page.locator('.worksheet-mobile-shell')).toBeVisible()
+    await page
+      .locator('.worksheet-mobile-card-summary')
+      .filter({ hasText: 'Architectural shingles' })
+      .click()
+    await expect(
+      page.locator('.worksheet-mobile-shell').getByLabel('1.2.3 material cost'),
+    ).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/iteration-8-mobile/project-estimate-iphone13.png',
+      fullPage: true,
+    })
+  })
 })

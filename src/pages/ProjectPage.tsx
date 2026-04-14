@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 
 import { EstimateTable } from '../components/EstimateTable'
 import { MetricCard } from '../components/MetricCard'
+import { ProjectMobileWorksheet } from '../components/ProjectMobileWorksheet'
 import { StatusBadge } from '../components/StatusBadge'
 import { TrackingTable } from '../components/TrackingTable'
 import {
@@ -342,14 +343,15 @@ export const ProjectPage = () => {
   return (
     <main className="app-screen app-screen-compact">
       <header className="project-header project-header-simple">
-        <div>
+        <div className="project-header-copy">
           <Link className="back-link" to="/">
             ← Back
           </Link>
           <h1>{project?.name ?? (isLoading ? 'Loading project…' : 'Project not found')}</h1>
           <p className="project-meta-line">
-            {project?.customer_name ?? 'Customer pending'} · {project?.location ?? 'Location pending'} ·
-            Due {project ? formatDate(project.bid_due_date) : isLoading ? 'Loading…' : 'No date'}
+            <span>{project?.customer_name ?? 'Customer pending'}</span>
+            <span>{project?.location ?? 'Location pending'}</span>
+            <span>Due {project ? formatDate(project.bid_due_date) : isLoading ? 'Loading…' : 'No date'}</span>
           </p>
         </div>
         <div className="project-header-actions">
@@ -383,7 +385,7 @@ export const ProjectPage = () => {
       </section>
 
       <article className="panel panel-large">
-        <div className="panel-heading panel-heading-compact">
+        <div className="panel-heading panel-heading-compact project-worksheet-header">
           <div>
             <h2>{sectionTitle}</h2>
           </div>
@@ -536,20 +538,36 @@ export const ProjectPage = () => {
         </div>
         {isLoading ? (
           <div className="panel-empty">Loading estimate rows…</div>
-        ) : projectMode === 'tracking' ? (
-          <TrackingTable
-            items={items}
-            isSaving={savingRowId}
-            onSaveRow={saveActualRow}
-            readOnly={isReadOnly}
-          />
         ) : (
-          <EstimateTable
-            items={items}
-            isSaving={savingRowId}
-            onSaveRow={saveRow}
-            readOnly={isReadOnly}
-          />
+          <>
+            <div className="worksheet-mobile-shell">
+              <ProjectMobileWorksheet
+                isSaving={savingRowId}
+                items={items}
+                mode={projectMode === 'tracking' ? 'tracking' : 'estimate'}
+                onSaveEstimateRow={saveRow}
+                onSaveTrackingRow={saveActualRow}
+                readOnly={isReadOnly}
+              />
+            </div>
+            <div className="worksheet-desktop-shell">
+              {projectMode === 'tracking' ? (
+                <TrackingTable
+                  items={items}
+                  isSaving={savingRowId}
+                  onSaveRow={saveActualRow}
+                  readOnly={isReadOnly}
+                />
+              ) : (
+                <EstimateTable
+                  items={items}
+                  isSaving={savingRowId}
+                  onSaveRow={saveRow}
+                  readOnly={isReadOnly}
+                />
+              )}
+            </div>
+          </>
         )}
       </article>
     </main>
