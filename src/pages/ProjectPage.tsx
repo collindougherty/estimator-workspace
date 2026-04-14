@@ -1,66 +1,85 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 
-import { EstimateTable } from '../components/EstimateTable'
 import { MetricCard } from '../components/MetricCard'
-import { ProjectMobileWorksheet } from '../components/ProjectMobileWorksheet'
 import { StatusBadge } from '../components/StatusBadge'
-import { TrackingTable } from '../components/TrackingTable'
 import {
-  createProjectScope,
   fetchOrganizations,
-  fetchPresetWbsItems,
   fetchProjectItemMetrics,
   fetchProjectSummary,
-  updateProjectActuals,
-  updateProjectEstimateItem,
 } from '../lib/api'
 import { formatCurrency, formatDate } from '../lib/formatters'
 import { exportProposalPdf } from '../lib/proposal-pdf'
-import type {
-  PresetWbsItem,
-  ProjectEstimateItemUpdate,
-  ProjectItemActualUpdate,
-  ProjectItemMetric,
-  ProjectSummary,
-} from '../lib/models'
+import type { ProjectItemMetric, ProjectSummary } from '../lib/models'
 
-const getDefaultScopeForm = (items: ProjectItemMetric[]) => {
-  const lastItem = items[items.length - 1]
+type SectionGroup = {
+  key: string
+  sectionCode: string
+  sectionName: string
+  items: ProjectItemMetric[]
+  estimatedTotal: number
+  actualTotal: number
+}
 
-  return {
-    sectionCode: lastItem?.section_code ?? '',
-    sectionName: lastItem?.section_name ?? '',
-    itemCode: '',
-    itemName: '',
-    unit: lastItem?.unit ?? 'ea',
+const filterTerminalItems = (items: ProjectItemMetric[]) => {
+  const codes = items
+    .map((item) => item.item_code?.trim())
+    .filter((code): code is string => Boolean(code))
+
+  return items.filter((item) => {
+    const code = item.item_code?.trim()
+
+    if (!code) {
+      return true
+    }
+
+    return !codes.some((candidate) => candidate !== code && candidate.startsWith(`${code}.`))
+  })
+}
+
+const buildSectionGroups = (items: ProjectItemMetric[]) => {
+  const groups = new Map<string, SectionGroup>()
+
+  for (const item of items) {
+    const sectionCode = item.section_code ?? '—'
+    const sectionName = item.section_name ?? 'Unassigned scope'
+    const key = `${sectionCode}:${sectionName}`
+    const existingGroup = groups.get(key)
+
+    if (!existingGroup) {
+      groups.set(key, {
+        key,
+        sectionCode,
+        sectionName,
+        items: [item],
+        estimatedTotal: item.estimated_total_cost ?? 0,
+        actualTotal: item.actual_total_cost ?? 0,
+      })
+      continue
+    }
+
+    existingGroup.items.push(item)
+    existingGroup.estimatedTotal += item.estimated_total_cost ?? 0
+    existingGroup.actualTotal += item.actual_total_cost ?? 0
   }
+
+  return Array.from(groups.values())
 }
 
 export const ProjectPage = () => {
   const { projectId } = useParams()
   const [project, setProject] = useState<ProjectSummary | null>(null)
   const [items, setItems] = useState<ProjectItemMetric[]>([])
-  const [presetScopeItems, setPresetScopeItems] = useState<PresetWbsItem[]>([])
   const [organizationName, setOrganizationName] = useState('')
   const [screenError, setScreenError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingPresetScopes, setIsLoadingPresetScopes] = useState(false)
-  const [savingRowId, setSavingRowId] = useState<string | null>(null)
-  const [isScopePickerOpen, setIsScopePickerOpen] = useState(false)
-  const [isCustomScopeFormOpen, setIsCustomScopeFormOpen] = useState(false)
-  const [isAddingScope, setIsAddingScope] = useState(false)
-  const [scopeSearch, setScopeSearch] = useState('')
-  const [scopeForm, setScopeForm] = useState(() => getDefaultScopeForm([]))
 
-  const loadProject = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+  const loadProject = useCallback(async () => {
     if (!projectId) {
       return
     }
 
-    if (!silent) {
-      setIsLoading(true)
-    }
+    setIsLoading(true)
     setScreenError(null)
 
     try {
@@ -83,65 +102,13 @@ export const ProjectPage = () => {
         caughtError instanceof Error ? caughtError.message : 'Unable to load project'
       setScreenError(message)
     } finally {
-      if (!silent) {
-        setIsLoading(false)
-      }
+      setIsLoading(false)
     }
   }, [projectId])
 
   useEffect(() => {
     void loadProject()
   }, [loadProject])
-
-  useEffect(() => {
-    const presetId = project?.preset_id
-
-    if (!presetId) {
-      setPresetScopeItems([])
-      return
-    }
-
-    let isActive = true
-
-    const loadPresetScopes = async () => {
-      setIsLoadingPresetScopes(true)
-
-      try {
-        const nextPresetScopes = await fetchPresetWbsItems(presetId)
-
-        if (isActive) {
-          setPresetScopeItems(nextPresetScopes)
-        }
-      } catch (caughtError) {
-        if (isActive) {
-          const message =
-            caughtError instanceof Error
-              ? caughtError.message
-              : 'Unable to load available scopes'
-          setScreenError(message)
-        }
-      } finally {
-        if (isActive) {
-          setIsLoadingPresetScopes(false)
-        }
-      }
-    }
-
-    void loadPresetScopes()
-
-    return () => {
-      isActive = false
-    }
-  }, [project?.preset_id])
-
-  const totals = useMemo(
-    () => ({
-      estimatedTotal: project?.estimated_total_cost ?? 0,
-      actualTotal: project?.actual_total_cost ?? 0,
-      invoiceAmount: project?.invoice_amount ?? 0,
-    }),
-    [project],
-  )
 
   const projectMode = useMemo(() => {
     if (!project?.status) {
@@ -159,173 +126,12 @@ export const ProjectPage = () => {
     return 'estimate'
   }, [project?.status])
 
-  const isReadOnly = project?.status === 'lost' || project?.status === 'archived'
-
-  const existingScopeCodes = useMemo(
-    () => new Set(items.map((item) => item.item_code).filter(Boolean)),
-    [items],
-  )
-
-  const filteredPresetScopes = useMemo(() => {
-    const search = scopeSearch.trim().toLowerCase()
-
-    return presetScopeItems.filter((scope) => {
-      if (existingScopeCodes.has(scope.item_code)) {
-        return false
-      }
-
-      if (!search) {
-        return true
-      }
-
-      return `${scope.section_code} ${scope.section_name} ${scope.item_code} ${scope.item_name}`
-        .toLowerCase()
-        .includes(search)
-    })
-  }, [existingScopeCodes, presetScopeItems, scopeSearch])
-
-  const sectionTitle =
-    projectMode === 'tracking'
-      ? isReadOnly
-        ? 'Actuals'
-        : 'Tracking'
-      : isReadOnly
-        ? 'Bid snapshot'
-        : 'Estimate'
+  const terminalItems = useMemo(() => filterTerminalItems(items), [items])
+  const sectionGroups = useMemo(() => buildSectionGroups(terminalItems), [terminalItems])
+  const projectProfit = (project?.estimated_total_cost ?? 0) - (project?.actual_total_cost ?? 0)
 
   if (!projectId) {
     return <Navigate replace to="/" />
-  }
-
-  const saveRow = async (
-    itemId: string,
-    patch: ProjectEstimateItemUpdate,
-  ) => {
-    setSavingRowId(itemId)
-    setScreenError(null)
-
-    try {
-      await updateProjectEstimateItem(itemId, patch)
-      await loadProject({ silent: true })
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error ? caughtError.message : 'Unable to save estimate row'
-      setScreenError(message)
-      throw caughtError
-    } finally {
-      setSavingRowId(null)
-    }
-  }
-
-  const saveActualRow = async (
-    itemId: string,
-    patch: ProjectItemActualUpdate,
-  ) => {
-    setSavingRowId(itemId)
-    setScreenError(null)
-
-    try {
-      await updateProjectActuals(itemId, patch)
-      await loadProject({ silent: true })
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error ? caughtError.message : 'Unable to save tracking row'
-      setScreenError(message)
-      throw caughtError
-    } finally {
-      setSavingRowId(null)
-    }
-  }
-
-  const handleToggleScopePicker = () => {
-    setIsScopePickerOpen((current) => {
-      const nextIsOpen = !current
-
-      if (nextIsOpen) {
-        setScopeSearch('')
-        setScopeForm(getDefaultScopeForm(items))
-      } else {
-        setIsCustomScopeFormOpen(false)
-      }
-
-      return nextIsOpen
-    })
-  }
-
-  const handleAddScope = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    if (!projectId) {
-      return
-    }
-
-    setIsAddingScope(true)
-    setScreenError(null)
-
-    try {
-      await createProjectScope({
-        projectId,
-        sectionCode: scopeForm.sectionCode,
-        sectionName: scopeForm.sectionName,
-        itemCode: scopeForm.itemCode,
-        itemName: scopeForm.itemName,
-        unit: scopeForm.unit,
-      })
-
-      setScopeForm({
-        sectionCode: scopeForm.sectionCode,
-        sectionName: scopeForm.sectionName,
-        itemCode: '',
-        itemName: '',
-        unit: scopeForm.unit,
-      })
-      await loadProject({ silent: true })
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Unable to add scope'
-      setScreenError(message)
-    } finally {
-      setIsAddingScope(false)
-    }
-  }
-
-  const handleAddPresetScope = async (presetScope: PresetWbsItem) => {
-    if (!projectId) {
-      return
-    }
-
-    setIsAddingScope(true)
-    setScreenError(null)
-
-    try {
-      await createProjectScope({
-        projectId,
-        presetItemId: presetScope.id,
-        sectionCode: presetScope.section_code,
-        sectionName: presetScope.section_name,
-        itemCode: presetScope.item_code,
-        itemName: presetScope.item_name,
-        unit: presetScope.unit,
-        isIncluded: presetScope.active_default,
-        quantity: presetScope.default_quantity,
-        laborHours: presetScope.default_labor_hours,
-        laborRate: presetScope.default_labor_rate,
-        materialCost: presetScope.default_material_cost,
-        equipmentDays: presetScope.default_equipment_days,
-        equipmentRate: presetScope.default_equipment_rate,
-        subcontractCost: presetScope.default_subcontract_cost,
-        overheadPercent: presetScope.default_overhead_percent,
-        profitPercent: presetScope.default_profit_percent,
-      })
-
-      setScopeSearch('')
-      await loadProject({ silent: true })
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error ? caughtError.message : 'Unable to add preset scope'
-      setScreenError(message)
-    } finally {
-      setIsAddingScope(false)
-    }
   }
 
   const handleExportProposal = () => {
@@ -372,202 +178,110 @@ export const ProjectPage = () => {
       <section className="metrics-grid">
         <MetricCard
           label={projectMode === 'tracking' ? 'Bid' : 'Estimate'}
-          value={project ? formatCurrency(totals.estimatedTotal) : '—'}
+          value={project ? formatCurrency(project.estimated_total_cost) : '—'}
         />
         <MetricCard
           label="Actual"
-          value={project ? formatCurrency(totals.actualTotal) : '—'}
+          value={project ? formatCurrency(project.actual_total_cost) : '—'}
         />
         <MetricCard
-          label="Invoice"
-          value={project ? formatCurrency(totals.invoiceAmount) : '—'}
+          label={projectMode === 'tracking' ? 'Profit' : 'Invoice'}
+          note={
+            projectMode === 'tracking' && project
+              ? `Invoice ${formatCurrency(project.invoice_amount)}`
+              : undefined
+          }
+          value={
+            project
+              ? formatCurrency(
+                  projectMode === 'tracking' ? projectProfit : project.invoice_amount,
+                )
+              : '—'
+          }
         />
       </section>
 
       <article className="panel panel-large">
-        <div className="panel-heading panel-heading-compact project-worksheet-header">
+        <div className="panel-heading panel-heading-compact">
           <div>
-            <h2>{sectionTitle}</h2>
+            <h2>Terminal items</h2>
+            <p className="panel-meta">
+              {projectMode === 'tracking'
+                ? 'Open a terminal WBS item to enter actual quantities, labor, equipment, and billing details.'
+                : 'Open a terminal WBS item to enter quantity, labor, equipment, and pricing without cluttering the project page.'}
+            </p>
           </div>
-          {!isReadOnly ? (
-            <div className="scope-picker">
-              <button
-                className="secondary-button"
-                onClick={handleToggleScopePicker}
-                type="button"
-              >
-                {isScopePickerOpen ? 'Close scope picker' : 'Add scope'}
-              </button>
-              {isScopePickerOpen ? (
-                <div className="scope-picker-popover">
-                  <div className="scope-picker-header">
-                    <div>
-                      <h3>Scope library</h3>
-                      <p>Search the preset scope list or add something custom.</p>
-                    </div>
-                  </div>
-                  <label className="scope-picker-search">
-                    <span>Search scopes</span>
-                    <input
-                      onChange={(event) => setScopeSearch(event.target.value)}
-                      placeholder="Search by code, section, or name"
-                      type="search"
-                      value={scopeSearch}
-                    />
-                  </label>
-                  <div className="scope-picker-list">
-                    {isLoadingPresetScopes ? (
-                      <div className="scope-picker-empty">Loading preset scopes…</div>
-                    ) : filteredPresetScopes.length === 0 ? (
-                      <div className="scope-picker-empty">No preset scopes match that search.</div>
-                    ) : (
-                      filteredPresetScopes.map((presetScope) => (
-                        <button
-                          className="scope-picker-option"
-                          disabled={isAddingScope}
-                          key={presetScope.id}
-                          onClick={() => {
-                            void handleAddPresetScope(presetScope)
-                          }}
-                          type="button"
-                        >
-                          <div>
-                            <strong>{presetScope.item_name}</strong>
-                            <span>
-                              {presetScope.section_code} · {presetScope.section_name} ·{' '}
-                              {presetScope.item_code}
-                            </span>
-                          </div>
-                          <span>{isAddingScope ? 'Adding…' : 'Add'}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                  <div className="scope-picker-divider" />
-                  <button
-                    className="ghost-button scope-picker-custom-toggle"
-                    onClick={() => {
-                      setIsCustomScopeFormOpen((current) => !current)
-                      setScopeForm(getDefaultScopeForm(items))
-                    }}
-                    type="button"
-                  >
-                    {isCustomScopeFormOpen ? 'Hide custom scope' : 'Add custom scope'}
-                  </button>
-                  {isCustomScopeFormOpen ? (
-                    <form className="scope-picker-form" onSubmit={handleAddScope}>
-                      <label>
-                        Section code
-                        <input
-                          onChange={(event) =>
-                            setScopeForm((current) => ({
-                              ...current,
-                              sectionCode: event.target.value,
-                            }))
-                          }
-                          required
-                          type="text"
-                          value={scopeForm.sectionCode}
-                        />
-                      </label>
-                      <label>
-                        Section name
-                        <input
-                          onChange={(event) =>
-                            setScopeForm((current) => ({
-                              ...current,
-                              sectionName: event.target.value,
-                            }))
-                          }
-                          required
-                          type="text"
-                          value={scopeForm.sectionName}
-                        />
-                      </label>
-                      <label>
-                        WBS code
-                        <input
-                          onChange={(event) =>
-                            setScopeForm((current) => ({
-                              ...current,
-                              itemCode: event.target.value,
-                            }))
-                          }
-                          required
-                          type="text"
-                          value={scopeForm.itemCode}
-                        />
-                      </label>
-                      <label>
-                        Scope
-                        <input
-                          onChange={(event) =>
-                            setScopeForm((current) => ({
-                              ...current,
-                              itemName: event.target.value,
-                            }))
-                          }
-                          required
-                          type="text"
-                          value={scopeForm.itemName}
-                        />
-                      </label>
-                      <label>
-                        Unit
-                        <input
-                          onChange={(event) =>
-                            setScopeForm((current) => ({
-                              ...current,
-                              unit: event.target.value,
-                            }))
-                          }
-                          required
-                          type="text"
-                          value={scopeForm.unit}
-                        />
-                      </label>
-                      <button className="primary-button" disabled={isAddingScope} type="submit">
-                        {isAddingScope ? 'Adding…' : 'Add custom scope'}
-                      </button>
-                    </form>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          <span className="section-count">{isLoading ? '—' : terminalItems.length}</span>
         </div>
+
         {isLoading ? (
-          <div className="panel-empty">Loading estimate rows…</div>
+          <div className="panel-empty">Loading terminal items…</div>
+        ) : sectionGroups.length === 0 ? (
+          <div className="panel-empty">No terminal items yet.</div>
         ) : (
-          <>
-            <div className="worksheet-mobile-shell">
-              <ProjectMobileWorksheet
-                isSaving={savingRowId}
-                items={items}
-                mode={projectMode === 'tracking' ? 'tracking' : 'estimate'}
-                onSaveEstimateRow={saveRow}
-                onSaveTrackingRow={saveActualRow}
-                readOnly={isReadOnly}
-              />
-            </div>
-            <div className="worksheet-desktop-shell">
-              {projectMode === 'tracking' ? (
-                <TrackingTable
-                  items={items}
-                  isSaving={savingRowId}
-                  onSaveRow={saveActualRow}
-                  readOnly={isReadOnly}
-                />
-              ) : (
-                <EstimateTable
-                  items={items}
-                  isSaving={savingRowId}
-                  onSaveRow={saveRow}
-                  readOnly={isReadOnly}
-                />
-              )}
-            </div>
-          </>
+          <div className="project-item-list-stack">
+            {sectionGroups.map((section) => (
+              <section className="project-item-section" key={section.key}>
+                <div className="project-item-section-header">
+                  <div>
+                    <span className="eyebrow">{section.sectionCode}</span>
+                    <h3>{section.sectionName}</h3>
+                  </div>
+                  <div className="project-item-section-summary">
+                    <strong>
+                      {formatCurrency(
+                        projectMode === 'tracking' ? section.actualTotal : section.estimatedTotal,
+                      )}
+                    </strong>
+                    <span>
+                      {projectMode === 'tracking'
+                        ? `Bid ${formatCurrency(section.estimatedTotal)}`
+                        : `${section.items.length} items`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="project-item-card-list">
+                  {section.items.map((item) => (
+                    <Link
+                      className="project-item-card"
+                      key={item.project_estimate_item_id}
+                      to={`/projects/${projectId}/items/${item.project_estimate_item_id}`}
+                    >
+                      <div className="project-item-card-copy">
+                        <div className="project-item-card-tags">
+                          <span className="scope-code-pill mono">{item.item_code}</span>
+                          <span className="scope-unit-pill">{item.unit}</span>
+                          {!item.is_included ? <span className="worksheet-mobile-flag">Excluded</span> : null}
+                        </div>
+                        <strong>{item.item_name ?? 'Scope item'}</strong>
+                        <span className="project-item-card-note">
+                          {projectMode === 'tracking'
+                            ? 'Open item to enter actual quantities, labor, equipment, and billing.'
+                            : 'Open item to enter quantity, labor, equipment, and price details.'}
+                        </span>
+                      </div>
+                      <div className="project-item-card-summary">
+                        <span>{projectMode === 'tracking' ? 'Actual' : 'Estimate'}</span>
+                        <strong>
+                          {formatCurrency(
+                            projectMode === 'tracking'
+                              ? item.actual_total_cost
+                              : item.estimated_total_cost,
+                          )}
+                        </strong>
+                        <small>
+                          {projectMode === 'tracking'
+                            ? `Bid ${formatCurrency(item.estimated_total_cost)}`
+                            : `${item.quantity ?? 0} ${item.unit ?? ''}`.trim()}
+                        </small>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         )}
       </article>
     </main>

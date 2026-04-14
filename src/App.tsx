@@ -5,6 +5,7 @@ import { AuthProvider } from './hooks/AuthProvider'
 import { useAuth } from './hooks/useAuth'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { ProjectItemPage } from './pages/ProjectItemPage'
 import { ProjectPage } from './pages/ProjectPage'
 
 const AppRouter = () => {
@@ -35,6 +36,10 @@ const AppRouter = () => {
       <Route
         path="/projects/:projectId"
         element={user ? <ProjectPage /> : <Navigate replace to="/login" />}
+      />
+      <Route
+        path="/projects/:projectId/items/:itemId"
+        element={user ? <ProjectItemPage /> : <Navigate replace to="/login" />}
       />
       <Route path="*" element={<Navigate replace to={user ? '/' : '/login'} />} />
     </Routes>

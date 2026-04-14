@@ -122,6 +122,19 @@ export const fetchProjectItemMetrics = async (
   return data ?? []
 }
 
+export const fetchProjectItemMetric = async (
+  itemId: string,
+): Promise<ProjectItemMetric | null> => {
+  const { data, error } = await supabase
+    .from('project_item_metrics')
+    .select('*')
+    .eq('project_estimate_item_id', itemId)
+    .maybeSingle()
+
+  throwOnError(error)
+  return data
+}
+
 export const createOrganization = async (name: string, slug?: string) => {
   const { data, error } = await supabase.rpc('create_organization', {
     p_name: name,
