@@ -1,32 +1,112 @@
 {
   "package_version": "v1",
-  "generated_at": "2026-04-15T05:19:20Z",
+  "generated_at": "2026-04-15T17:09:12Z",
   "permit_window": {
-    "stub": "residential_reroof_2025-11-01_2026-04-14_cohort",
-    "permit_key": "residential_reroof",
+    "stub": "omaha_multitrade_2025-11-01_2026-04-14_cohort",
+    "permit_key": "omaha_multitrade",
     "start_date": "2025-11-01",
     "end_date": "2026-04-14"
   },
   "cohort": {
-    "rows": 803,
+    "rows": 2730,
+    "cohort_profile": "broad_permit_modeling",
     "source_counties": {
-      "douglas": 803
+      "douglas": 2730
     },
-    "median_job_value": 10500.0
+    "permit_type_counts": {
+      "RE-ROOF": 595,
+      "FENCE": 531,
+      "WINDOW REPLACEMENT": 492,
+      "SINGLE FAMILY HOME OR DUPLEX": 193,
+      "RE-SIDE": 139,
+      "DECK": 125,
+      "FIRE SPRINKLER OR CHEMICAL CONTROL SYSTEMS": 78,
+      "BASEMENT FINISH (Excluding relocation of walls or other structural changes)": 64,
+      "SOFFITS AND GUTTERS": 56,
+      "ADDITION": 43,
+      "SHED UNDER 150sqft.": 38,
+      "REMODEL EXISTING SPACE": 35,
+      "REMODEL OF EXISTING SPACE": 35,
+      "RE-ROOF (Excluding relocation of walls or other structural changes)": 32,
+      "BATH REMODEL (Excluding relocation of walls or other structural changes)": 24,
+      "BUILDING DEMOLITION": 23,
+      "KITCHEN REMODEL (Excluding relocation of walls or other structural changes)": 22,
+      "ROOF REPAIR": 20,
+      "CELL TOWER ANTENNA": 18,
+      "TOWNHOME": 17,
+      "GARAGE OR SHED 150sqft. and GREATER": 17,
+      "SOLAR PANELS AND SHINGLES - RESIDENTIAL": 13,
+      "FENCES": 12,
+      "GENERAL REPAIR - CODE ENFORCEMENT ONLY (Excluding structural repairs)": 12,
+      "NEW BUILDING": 12,
+      "DECK OR PATIO COVERING": 11,
+      "NEW TENANT FINISH (First Tenant)": 10,
+      "FIRE REPAIR": 7,
+      "WINDOW REPLACEMENTS": 7,
+      "ADDITIONS": 6,
+      "COMMERCIAL BUILDING - ADDENDUM": 5,
+      "DRIVEWAY": 4,
+      "AWNING": 4,
+      "CANOPY": 4,
+      "EGRESS WINDOW": 4,
+      "PATIO": 3,
+      "RETAINING WALLS (6' or over)": 3,
+      "DECK, PATIO, OR RAMP": 3,
+      "HANDRAIL": 3,
+      "RETAINING WALL (6' or over)": 2,
+      "ROOF REPAIRS": 1,
+      "FIRE REPAIRS": 1,
+      "FOOTING & FOUNDATION": 1,
+      "BOARD APPLICATIONS - ZONING BOARD OF APPEALS": 1,
+      "RESIDENTIAL - MISCELLANEOUS": 1,
+      "SOLAR PANELS AND SHINGLES - COMMERCIAL": 1,
+      "GENERAL REPAIRS - CODE ENFORCEMENT ONLY (Excluding structural repairs)": 1,
+      "RE-SIDE (Excluding relocation of walls or other structural changes)": 1
+    },
+    "class_counts": {
+      "R": 2418,
+      "C": 125,
+      "E": 62,
+      "M": 48,
+      "I": 39,
+      "F": 35,
+      "U": 3
+    },
+    "median_job_value": 8564.5
   },
   "validation": {
-    "best_point_model": "random-forest-log",
-    "packaged_point_model": "random-forest-log",
-    "packaged_point_model_holdout_mae": 6335.963970097422,
-    "packaged_point_model_holdout_median_ape_pct": 32.65738077579472,
+    "best_point_model": "permit-type-fallback-forest-log",
+    "packaged_point_model": "permit-type-fallback-forest-log",
+    "packaged_point_model_selected_via": "chronological calibration MAE",
+    "packaged_point_model_holdout_mae": 11477.345396102552,
+    "packaged_point_model_holdout_median_ape_pct": 43.3400219216464,
     "recommended_band_method": "nearest-neighbor empirical 5th-95th percentile band",
-    "recommended_band_holdout_coverage": 0.8509316770186336
+    "recommended_band_holdout_coverage": 0.7948717948717948,
+    "recommended_band_confidence_method": "permit-type holdout coverage plus current comp-pool breadth and band-width checks"
+  },
+  "band_reliability": {
+    "tier_counts": {
+      "standard": 1093,
+      "caution": 891,
+      "higher": 746
+    },
+    "higher_share": 0.27326007326007323,
+    "caution_share": 0.3263736263736264,
+    "median_band_width": 20629.086749999995,
+    "median_band_width_ratio": 2.305226124095846,
+    "caution_permit_types": [
+      "SINGLE FAMILY HOME OR DUPLEX",
+      "FIRE SPRINKLER OR CHEMICAL CONTROL SYSTEMS",
+      "SOFFITS AND GUTTERS",
+      "ADDITION",
+      "REMODEL EXISTING SPACE"
+    ]
   },
   "readiness": {
     "nearest_comp_band": "v1-ready",
     "nearest_comp_list": "v1-ready",
-    "random_forest_point_estimate": "supporting-only",
-    "company_rollup": "exploratory",
+    "packaged_point_estimate": "supporting-only",
+    "company_rollup": "source-limited",
     "sarpy_multicounty_signal": "staged-no-live-signal"
   },
   "sarpy_status": {
@@ -36,25 +116,27 @@
     "live_cohort_rows": 0,
     "note": "Sarpy is staged but currently contributes no rows to the live permit-window cohort."
   },
-  "recommended_first_product_surface": "Douglas-only job-level competitor band: show the nearest-comp 5th-95th percentile band, comp median, and the closest comparable permits for residential re-roof jobs.",
+  "recommended_first_product_surface": "Job-level competitor band within the same permit type (and preferably the same property class): show the nearest-comp 5th-95th percentile band, the comp median, and the closest comparable permits behind it.",
   "files": {
     "output_dir": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1",
     "scored_cohort_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/scored_cohort.csv",
     "nearest_comps_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/nearest_comps.csv",
     "company_rollup_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/company_rollup.csv",
-    "output_readme": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/README.md"
+    "band_diagnostics_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/band_diagnostics.csv",
+    "output_readme": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/README.md",
+    "html_report": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/report.html"
   },
   "supporting_artifacts": {
-    "metrics_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_metrics.csv",
-    "holdout_predictions_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_holdout_predictions.csv",
-    "model_summary_json": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_model_summary.json",
-    "multicounty_join_summary_json": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/multicounty/residential_reroof_2025-11-01_2026-04-14_multicounty_join_summary.json",
+    "metrics_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/omaha_multitrade_2025-11-01_2026-04-14_cohort_metrics.csv",
+    "holdout_predictions_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/omaha_multitrade_2025-11-01_2026-04-14_cohort_holdout_predictions.csv",
+    "model_summary_json": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/omaha_multitrade_2025-11-01_2026-04-14_cohort_model_summary.json",
+    "multicounty_join_summary_json": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/multicounty/omaha_multitrade_2025-11-01_2026-04-14_multicounty_join_summary.json",
     "sarpy_overlap_summary_json": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/sarpy_county/sarpy_current_permit_overlap_summary.json"
   },
   "limitations": [
-    "Current live cohort is Douglas-only residential re-roof permits.",
+    "Current cohort uses the broader multi-trade Omaha permit copy and same-type comparable pools.",
     "Permit job value is a public declared valuation, not realized invoice revenue.",
-    "Contractor/company strings are not yet normalized, so company rollups remain exploratory.",
+    "The current multi-trade source mostly lacks contractor/company fields, so company rollups remain limited.",
     "Sarpy is staged but currently contributes no rows to the live permit-window cohort."
   ]
 }

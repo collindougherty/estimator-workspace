@@ -55,6 +55,17 @@ KEYWORD_MAP = {
     "skylight": ["skylight"],
 }
 
+COHORT_PROFILE_NOTES = {
+    "residential_roofing_v1": (
+        "Matched permit rows with positive declared value, Issued/Closed status, residential property class, "
+        "non-null building sqft and total value, and at most one building."
+    ),
+    "broad_permit_modeling": (
+        "Matched permit rows with positive declared value, Issued/Closed status, and non-null building sqft "
+        "and total value across all permit types and property classes."
+    ),
+}
+
 
 def normalize_address(value: str | None) -> str | None:
     if value is None or pd.isna(value):
@@ -66,6 +77,13 @@ def normalize_address(value: str | None) -> str | None:
 
 def to_float(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
+
+
+def count_values(frame: pd.DataFrame, column: str) -> dict[str, int]:
+    if column not in frame.columns:
+        return {}
+    cleaned = frame[column].fillna("Unknown").astype(str).str.strip().replace("", "Unknown")
+    return {str(key): int(value) for key, value in cleaned.value_counts().to_dict().items()}
 
 
 def profile_property_source(source_path: Path) -> dict[str, object]:
@@ -153,12 +171,46 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df["quality"] = df["quality"].fillna("Unknown")
     df["condition"] = df["condition"].fillna("Unknown")
     df["prop_zip"] = df["prop_zip"].fillna("Unknown")
+    if "permit_prefix" not in df.columns:
+        df["permit_prefix"] = df["record_number"].fillna("").astype(str).str.split("-").str[0].replace("", "Unknown")
+    df["permit_prefix"] = df["permit_prefix"].fillna("Unknown")
+    if "permit_type" not in df.columns:
+        df["permit_type"] = "Unknown"
+    df["permit_type"] = df["permit_type"].fillna("Unknown")
+    if "category" not in df.columns:
+        df["category"] = df["permit_type"]
+    df["category"] = df["category"].fillna(df["permit_type"]).fillna("Unknown")
+    df["class"] = df["class"].fillna("Unknown")
+    if "construction_type_codes" not in df.columns:
+        df["construction_type_codes"] = "Unknown"
+    df["construction_type_codes"] = df["construction_type_codes"].fillna("Unknown")
 
     text_series = df["description_full"].str.lower().fillna("")
     for key, phrases in KEYWORD_MAP.items():
         df[f"kw_{key}"] = text_series.apply(lambda text, phrases=phrases: int(any(phrase in text for phrase in phrases)))
 
     return df
+
+
+def build_cohort(joined: pd.DataFrame, cohort_profile: str) -> pd.DataFrame:
+    if cohort_profile not in COHORT_PROFILE_NOTES:
+        raise ValueError(f"Unsupported cohort profile: {cohort_profile}")
+
+    base_mask = (
+        (joined["_merge"] == "both")
+        & (joined["job_value"].fillna(0) > 0)
+        & (joined["status"].fillna("").isin(["Issued", "Closed"]))
+        & (joined["bldg_sf"].notna())
+        & (joined["total_valu"].notna())
+    )
+    if cohort_profile == "residential_roofing_v1":
+        base_mask &= (joined["class"].fillna("") == "R") & (
+            joined["number_of_buildings"].isna() | (joined["number_of_buildings"] <= 1)
+        )
+
+    cohort = joined[base_mask].copy()
+    cohort = cohort.sort_values(["record_date", "record_number"]).reset_index(drop=True)
+    return cohort
 
 
 def summarize_targets(df: pd.DataFrame) -> pd.DataFrame:
@@ -192,6 +244,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Join permit and property data for modeling.")
     parser.add_argument("--permit-csv", type=Path, required=True)
     parser.add_argument("--property-source", type=Path, default=DEFAULT_PROPERTY_SOURCE)
+    parser.add_argument(
+        "--cohort-profile",
+        default="residential_roofing_v1",
+        choices=sorted(COHORT_PROFILE_NOTES),
+        help="Filter profile used to define the modeled cohort from the joined permit/property rows.",
+    )
     parser.add_argument("--property-subset-csv", type=Path)
     parser.add_argument("--joined-output-csv", type=Path)
     parser.add_argument("--cohort-output-csv", type=Path)
@@ -247,23 +305,21 @@ def main() -> None:
     joined_output_csv.parent.mkdir(parents=True, exist_ok=True)
     joined.to_csv(joined_output_csv, index=False)
 
-    cohort = joined[
-        (joined["_merge"] == "both")
-        & (joined["job_value"].fillna(0) > 0)
-        & (joined["status"].fillna("").isin(["Issued", "Closed"]))
-        & (joined["class"].fillna("") == "R")
-        & (joined["bldg_sf"].notna())
-        & (joined["total_valu"].notna())
-        & ((joined["number_of_buildings"].isna()) | (joined["number_of_buildings"] <= 1))
-    ].copy()
-    cohort = cohort.sort_values(["record_date", "record_number"]).reset_index(drop=True)
+    cohort = build_cohort(joined, args.cohort_profile)
     cohort.to_csv(cohort_output_csv, index=False)
+
+    permits_with_job_value = permits.loc[pd.to_numeric(permits["job_value"], errors="coerce").notna()].copy()
 
     join_summary = {
         "permit_rows": int(len(permits)),
-        "permit_rows_with_job_value": int(pd.to_numeric(permits["job_value"], errors="coerce").notna().sum()),
+        "cohort_profile": args.cohort_profile,
+        "cohort_profile_note": COHORT_PROFILE_NOTES[args.cohort_profile],
+        "permit_rows_with_job_value": int(len(permits_with_job_value)),
         "permit_rows_with_parcel_number": int(permits["parcel_number"].notna().sum()),
         "permit_rows_with_address_key": int(permits["address_key"].notna().sum()),
+        "permit_rows_by_permit_type": count_values(permits, "permit_type"),
+        "permit_rows_with_job_value_by_permit_type": count_values(permits_with_job_value, "permit_type"),
+        "permit_rows_by_category": count_values(permits, "category"),
         "property_subset_rows": int(len(property_subset)),
         "joined_rows": int(len(joined)),
         "matched_rows": int((joined["_merge"] == "both").sum()),
@@ -271,6 +327,9 @@ def main() -> None:
         "pin_matches": int((joined["join_method"] == "pin").sum()),
         "address_matches": int((joined["join_method"] == "address").sum()),
         "cohort_rows": int(len(cohort)),
+        "cohort_rows_by_permit_type": count_values(cohort, "permit_type"),
+        "cohort_rows_by_category": count_values(cohort, "category"),
+        "cohort_rows_by_class": count_values(cohort, "class"),
         "cohort_start_date": cohort["record_date"].min().strftime("%Y-%m-%d") if len(cohort) else None,
         "cohort_end_date": cohort["record_date"].max().strftime("%Y-%m-%d") if len(cohort) else None,
         "median_job_value": float(cohort["job_value"].median()) if len(cohort) else None,

@@ -1,12 +1,26 @@
 import type { ProjectStatus } from './models'
 
 export const projectStatusLabelMap: Record<ProjectStatus, string> = {
-  draft: 'Draft',
+  draft: 'Bidding',
   bidding: 'Bidding',
-  submitted: 'Submitted',
-  won: 'Won',
+  submitted: 'Bidding',
+  won: 'Bidding',
   active: 'Active',
-  completed: 'Completed',
-  lost: 'Not awarded',
-  archived: 'Archived',
+  completed: 'Closed',
+  lost: 'Closed',
+  archived: 'Closed',
+}
+
+export const visibleProjectStatusOptions: ProjectStatus[] = ['bidding', 'active', 'completed']
+
+export const normalizeProjectStatus = (status?: ProjectStatus | null): ProjectStatus => {
+  if (status === 'active') {
+    return 'active'
+  }
+
+  if (status === 'completed' || status === 'lost' || status === 'archived') {
+    return 'completed'
+  }
+
+  return 'bidding'
 }

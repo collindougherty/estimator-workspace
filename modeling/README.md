@@ -1,33 +1,48 @@
 # Modeling workspace
 
-## Canonical v1 pipeline
+## Current packaged multi-trade run
 
-Run the current usable package from the repo root:
-
-```bash
-python3 modeling/scripts/run_competitor_v1.py
-```
-
-Default behavior reuses the copied Omaha permit extract already under `modeling/data/raw/roofing/`, rebuilds the Douglas modeling cohort, refreshes Sarpy staging + multicounty status checks, retrains the prototype models, and publishes clean consumer-facing outputs under `modeling/output/v1/`.
-
-Use `--refresh-permits` only when you want to hit the live Accela source again:
+From the repo root, rebuild the current Omaha multi-trade package with:
 
 ```bash
-python3 modeling/scripts/run_competitor_v1.py --refresh-permits
+python3 modeling/scripts/run_competitor_v1.py \
+  --permit-csv modeling/data/raw/permits/omaha_multitrade_2025-11-01_2026-04-14.csv \
+  --cohort-profile broad_permit_modeling
 ```
 
-The v1 pipeline currently packages:
-1. Douglas-only residential re-roof cohort prep and evaluation artifacts in `modeling/data/processed/`
-2. Sarpy staging/status refresh in `modeling/data/raw/properties/sarpy_county/` and `modeling/data/processed/sarpy_county/`
-3. multicounty join status artifacts in `modeling/data/processed/multicounty/`
-4. app-consumable v1 outputs in `modeling/output/v1/`
+This is the workflow that currently refreshes the packaged artifacts under `modeling/output/v1/` and the supporting summaries under `modeling/data/processed/`.
 
-## Legacy prototype entrypoint
+## What that run does
 
-The original exploratory orchestrator still exists:
+1. Reuses the copied Mac mini permit extract already normalized under `modeling/data/raw/permits/`
+2. Rebuilds the matched Douglas/Omaha joined dataset and the valuation-ready multi-trade cohort
+3. Retrains the prototype models with chronological train/calibration/holdout evaluation
+4. Refreshes Sarpy staging plus multicounty join-status artifacts
+5. Publishes the app-consumable package under `modeling/output/v1/`
+6. Regenerates `modeling/output/v1/report.html`
+7. Refreshes permit-type band reliability diagnostics so the package flags where the comparable-job range is strongest vs cautionary
 
-```bash
-python3 modeling/scripts/run_full_pipeline.py
-```
+## Current package shape
 
-Use that only if you want the narrower prototype flow without the v1 packaging layer.
+- `modeling/data/raw/permits/mac-mini-roofing/`
+  - copied raw Omaha permit JSON snapshots and scraper references from the Mac mini
+- `modeling/data/raw/permits/omaha_multitrade_2025-11-01_2026-04-14.csv`
+  - canonical wide permit CSV with preserved raw fields plus parsed columns
+- `modeling/data/processed/`
+  - joined/cohort tables, holdout predictions, metrics, feature importance, and error breakdowns
+- `modeling/data/processed/multicounty/`
+  - multicounty match/status summaries, including the address-fallback join pass
+- `modeling/output/v1/`
+  - manifest, scored cohort, nearest comps, band diagnostics, company rollup, and stakeholder HTML report
+
+## Important current realities
+
+- The broad source is genuinely multi-trade, but many plumbing/electrical/HVAC rows have no declared valuation, so they stay in intake counts while dropping out of the pricing cohort.
+- The current packaged point model is `permit-type-fallback-forest-log`, selected by chronological calibration MAE.
+- The recommended first product surface is still the same-type nearest-comp 5th-95th percentile band plus the comparable-job list behind it.
+- The package now also carries permit-type holdout coverage diagnostics plus row-level `band_reliability_tier` / `band_reliability_note` fields so wide or weakly supported ranges are easier to caveat.
+- Sarpy is staged and checked every run, but the current live cohort still contributes `0` Sarpy rows.
+
+## Legacy / narrower path
+
+`run_competitor_v1.py` still defaults to the older roofing-fetch flow when `--permit-csv` is omitted. Keep that behavior only for narrower prototype reruns; the current packaged competitor work uses the explicit multi-trade command above.

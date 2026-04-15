@@ -1,0 +1,49 @@
+permit_type,cohort_rows,holdout_jobs,holdout_band_coverage_90,holdout_median_band_width,holdout_median_band_width_ratio,holdout_median_neighbor_count,dominant_comp_pool_strategy,band_reliability_tier,band_reliability_note
+RE-ROOF,595,158,0.7784810126582279,19080.5125,1.87428617428514,12.0,permit_type+class,standard,158 holdout jobs; 90% band coverage 78%
+FENCE,531,135,0.837037037037037,6230.238499999998,2.332533033033033,12.0,permit_type+class,higher,135 holdout jobs; 90% band coverage 84%
+WINDOW REPLACEMENT,492,82,0.8170731707317073,21189.907249999993,4.662213486542596,12.0,permit_type+class,standard,82 holdout jobs; 90% band coverage 82%
+SINGLE FAMILY HOME OR DUPLEX,193,17,0.47058823529411764,75680.59999999996,0.4671947965310203,12.0,permit_type+class,caution,17 holdout jobs; 90% band coverage 47%
+RE-SIDE,139,38,0.8947368421052632,26947.463999999993,2.8431387233420966,12.0,permit_type+class,higher,38 holdout jobs; 90% band coverage 89%
+DECK,125,23,1.0,36028.99999999999,1.878931588988825,12.0,permit_type+class,higher,23 holdout jobs; 90% band coverage 100%
+FIRE SPRINKLER OR CHEMICAL CONTROL SYSTEMS,78,16,0.8125,178656.74999999988,17.71091644510136,11.0,permit_type+class,caution,16 holdout jobs; 90% band coverage 81%; current band is very wide versus the comp median
+BASEMENT FINISH (Excluding relocation of walls or other structural changes),64,17,0.7647058823529411,66971.95,2.8498702127659574,12.0,permit_type+class,standard,17 holdout jobs; 90% band coverage 76%
+SOFFITS AND GUTTERS,56,7,1.0,7149.999999999996,3.5749999999999984,12.0,permit_type+class,caution,7 holdout jobs; 90% band coverage 100%
+ADDITION,43,3,1.0,197328.79999999996,4.961001609010458,12.0,permit_type+class,caution,3 holdout jobs; 90% band coverage 100%
+SHED UNDER 150sqft.,38,11,0.7272727272727273,1992.2999999999993,0.701514084507042,12.0,permit_type+class,standard,11 holdout jobs; 90% band coverage 73%
+REMODEL EXISTING SPACE,35,2,0.5,129768.94999999992,3.8760895026881697,12.0,permit_type+class,caution,2 holdout jobs; 90% band coverage 50%
+REMODEL OF EXISTING SPACE,35,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+RE-ROOF (Excluding relocation of walls or other structural changes),32,5,0.4,213799.24999999985,8.84772466181543,12.0,permit_type+class,caution,5 holdout jobs; 90% band coverage 40%; current band is very wide versus the comp median
+BATH REMODEL (Excluding relocation of walls or other structural changes),24,4,1.0,102872.72049999997,7.399323341228065,12.0,permit_type+class,caution,4 holdout jobs; 90% band coverage 100%
+BUILDING DEMOLITION,23,6,0.0,0.0,0.0,2.0,permit_type+class,caution,6 holdout jobs; 90% band coverage 0%
+KITCHEN REMODEL (Excluding relocation of walls or other structural changes),22,6,0.6666666666666666,166173.49999999994,4.7517428571428555,12.0,permit_type+class,caution,6 holdout jobs; 90% band coverage 67%
+ROOF REPAIR,20,6,1.0,10204.724999999991,3.936279648449757,12.0,permit_type+class,caution,6 holdout jobs; 90% band coverage 100%
+CELL TOWER ANTENNA,18,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+GARAGE OR SHED 150sqft. and GREATER,17,2,1.0,79415.99999999999,3.11435294117647,12.0,permit_type+class,caution,2 holdout jobs; 90% band coverage 100%
+TOWNHOME,17,2,0.0,22807.199999999997,0.285182684372421,12.0,permit_type+class,caution,2 holdout jobs; 90% band coverage 0%
+SOLAR PANELS AND SHINGLES - RESIDENTIAL,13,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+GENERAL REPAIR - CODE ENFORCEMENT ONLY (Excluding structural repairs),12,1,0.0,2250.0,1.0,2.0,permit_type+class,caution,1 holdout jobs; 90% band coverage 0%
+FENCES,12,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+NEW BUILDING,12,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+DECK OR PATIO COVERING,11,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+NEW TENANT FINISH (First Tenant),10,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+WINDOW REPLACEMENTS,7,2,0.5,1192759.9999999998,53.011555555555546,5.0,permit_type+class,caution,2 holdout jobs; 90% band coverage 50%; current band is very wide versus the comp median
+FIRE REPAIR,7,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+ADDITIONS,6,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+COMMERCIAL BUILDING - ADDENDUM,5,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+AWNING,4,0,,,,,permit_type,caution,no meaningful holdout coverage sample for this permit type yet; current row used permit_type comp selection
+CANOPY,4,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+DRIVEWAY,4,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+EGRESS WINDOW,4,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+HANDRAIL,3,1,0.0,0.0,0.0,2.0,permit_type+class,caution,1 holdout jobs; 90% band coverage 0%
+"DECK, PATIO, OR RAMP",3,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+PATIO,3,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+RETAINING WALLS (6' or over),3,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+RETAINING WALL (6' or over),2,0,,,,,permit_type+class,caution,no meaningful holdout coverage sample for this permit type yet
+RE-SIDE (Excluding relocation of walls or other structural changes),1,1,1.0,12860.65,1.5842140921409213,12.0,permit_prefix,caution,1 holdout jobs; 90% band coverage 100%; current row used permit_prefix comp selection
+ROOF REPAIRS,1,1,1.0,381399.9999999997,6.356666666666662,12.0,permit_prefix,caution,1 holdout jobs; 90% band coverage 100%; current row used permit_prefix comp selection
+BOARD APPLICATIONS - ZONING BOARD OF APPEALS,1,0,,,,,class,caution,no meaningful holdout coverage sample for this permit type yet; current row used class comp selection
+FIRE REPAIRS,1,0,,,,,permit_prefix,caution,no meaningful holdout coverage sample for this permit type yet; current row used permit_prefix comp selection
+FOOTING & FOUNDATION,1,0,,,,,permit_prefix,caution,no meaningful holdout coverage sample for this permit type yet; current row used permit_prefix comp selection
+GENERAL REPAIRS - CODE ENFORCEMENT ONLY (Excluding structural repairs),1,0,,,,,permit_prefix,caution,no meaningful holdout coverage sample for this permit type yet; current row used permit_prefix comp selection
+RESIDENTIAL - MISCELLANEOUS,1,0,,,,,permit_prefix,caution,no meaningful holdout coverage sample for this permit type yet; current row used permit_prefix comp selection
+SOLAR PANELS AND SHINGLES - COMMERCIAL,1,0,,,,,permit_prefix,caution,no meaningful holdout coverage sample for this permit type yet; current row used permit_prefix comp selection

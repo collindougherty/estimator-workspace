@@ -3,18 +3,26 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import {
   createOrganization,
+  duplicateProject,
   deleteProject,
   createProjectFromPreset,
   fetchOrganizations,
   fetchPresets,
+  fetchPresetWbsItems,
   fetchProjectSummaries,
   updateProjectStatus,
 } from '../lib/api'
+import { WorkspaceMenu } from '../components/WorkspaceMenu'
 import { formatCurrency, formatDate } from '../lib/formatters'
-import { projectStatusLabelMap } from '../lib/project-status'
+import {
+  normalizeProjectStatus,
+  projectStatusLabelMap,
+  visibleProjectStatusOptions,
+} from '../lib/project-status'
 import type {
   ContractorPreset,
   Organization,
+  PresetWbsItem,
   ProjectStatus,
   ProjectSummary,
 } from '../lib/models'
@@ -30,25 +38,18 @@ const emptyProjectForm = {
   notes: '',
 }
 
-const projectStatusOptions: ProjectStatus[] = [
-  'draft',
-  'bidding',
-  'submitted',
-  'won',
-  'active',
-  'completed',
-  'lost',
-]
-
 export const DashboardPage = () => {
   const navigate = useNavigate()
   const { signOutUser, user } = useAuth()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null)
   const [presets, setPresets] = useState<ContractorPreset[]>([])
+  const [presetScopeItems, setPresetScopeItems] = useState<PresetWbsItem[]>([])
+  const [selectedPresetScopeIds, setSelectedPresetScopeIds] = useState<string[]>([])
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProjectsLoading, setIsProjectsLoading] = useState(true)
+  const [isPresetScopesLoading, setIsPresetScopesLoading] = useState(false)
   const [screenError, setScreenError] = useState<string | null>(null)
   const [projectForm, setProjectForm] = useState(emptyProjectForm)
   const [organizationName, setOrganizationName] = useState('')
@@ -137,6 +138,40 @@ export const DashboardPage = () => {
     void loadScopedData()
   }, [selectedOrganizationId])
 
+  useEffect(() => {
+    const loadPresetScopeItems = async () => {
+      if (!selectedPresetId) {
+        setPresetScopeItems([])
+        setSelectedPresetScopeIds([])
+        return
+      }
+
+      setIsPresetScopesLoading(true)
+
+      try {
+        const nextPresetScopeItems = await fetchPresetWbsItems(selectedPresetId)
+        const defaultSelectedScopeIds = nextPresetScopeItems
+          .filter((item) => item.active_default)
+          .map((item) => item.id)
+
+        setPresetScopeItems(nextPresetScopeItems)
+        setSelectedPresetScopeIds(
+          defaultSelectedScopeIds.length > 0
+            ? defaultSelectedScopeIds
+            : nextPresetScopeItems.map((item) => item.id),
+        )
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof Error ? caughtError.message : 'Failed to load preset scopes'
+        setScreenError(message)
+      } finally {
+        setIsPresetScopesLoading(false)
+      }
+    }
+
+    void loadPresetScopeItems()
+  }, [selectedPresetId])
+
   const groupedProjects = useMemo(
     () =>
       projectGroups.map((group) => ({
@@ -147,6 +182,36 @@ export const DashboardPage = () => {
       })),
     [projects],
   )
+
+  const presetScopeSections = useMemo(() => {
+    const sections = new Map<
+      string,
+      {
+        itemCount: number
+        items: PresetWbsItem[]
+        label: string
+      }
+    >()
+
+    presetScopeItems.forEach((item) => {
+      const key = `${item.section_code}-${item.section_name}`
+      const section = sections.get(key)
+
+      if (section) {
+        section.items.push(item)
+        section.itemCount += 1
+        return
+      }
+
+      sections.set(key, {
+        itemCount: 1,
+        items: [item],
+        label: `${item.section_code} · ${item.section_name}`,
+      })
+    })
+
+    return Array.from(sections.values())
+  }, [presetScopeItems])
 
   const handleCreateOrganization = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -177,6 +242,11 @@ export const DashboardPage = () => {
       return
     }
 
+    if (selectedPresetScopeIds.length === 0) {
+      setScreenError('Select at least one scope for the new bid.')
+      return
+    }
+
     setIsCreatingProject(true)
     setScreenError(null)
 
@@ -184,6 +254,7 @@ export const DashboardPage = () => {
       const projectId = await createProjectFromPreset({
         organizationId: selectedOrganizationId,
         presetId: selectedPresetId,
+        presetItemIds: selectedPresetScopeIds,
         ...projectForm,
       })
 
@@ -197,6 +268,14 @@ export const DashboardPage = () => {
     } finally {
       setIsCreatingProject(false)
     }
+  }
+
+  const handleTogglePresetScope = (scopeItemId: string) => {
+    setSelectedPresetScopeIds((current) =>
+      current.includes(scopeItemId)
+        ? current.filter((itemId) => itemId !== scopeItemId)
+        : [...current, scopeItemId],
+    )
   }
 
   const handleProjectStatusChange = async (projectId: string, status: ProjectStatus) => {
@@ -218,6 +297,27 @@ export const DashboardPage = () => {
       setScreenError(message)
     } finally {
       setUpdatingProjectId(null)
+    }
+  }
+
+  const handleDuplicateProject = async (project: ProjectSummary) => {
+    if (!project.project_id) {
+      return
+    }
+
+    setActionMenuProjectId(null)
+    setActioningProjectId(project.project_id)
+    setScreenError(null)
+
+    try {
+      const duplicatedProjectId = await duplicateProject(project.project_id)
+      navigate(`/projects/${duplicatedProjectId}`)
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error ? caughtError.message : 'Unable to duplicate project'
+      setScreenError(message)
+    } finally {
+      setActioningProjectId(null)
     }
   }
 
@@ -271,6 +371,7 @@ export const DashboardPage = () => {
           <button className="secondary-button" onClick={() => void signOutUser()} type="button">
             Sign out
           </button>
+          <WorkspaceMenu />
         </div>
       </header>
 
@@ -325,9 +426,59 @@ export const DashboardPage = () => {
                     ))}
                   </select>
                 </label>
+                 <div className="project-create-scope-panel">
+                   <div className="project-create-scope-header">
+                     <div>
+                       <span className="eyebrow">Scopes</span>
+                       <strong>Pick what to start with</strong>
+                       <p className="panel-meta">
+                         Check the preset scopes you want cloned into this bid.
+                       </p>
+                     </div>
+                     <span className="section-count">
+                       {isPresetScopesLoading ? '—' : selectedPresetScopeIds.length}
+                     </span>
+                   </div>
+
+                   {isPresetScopesLoading ? (
+                     <div className="panel-empty">Loading preset scopes…</div>
+                   ) : (
+                     <div className="project-create-scope-groups">
+                       {presetScopeSections.map((section) => (
+                         <section className="project-create-scope-group" key={section.label}>
+                           <div className="project-create-scope-group-heading">
+                             <strong>{section.label}</strong>
+                             <span>{section.itemCount} scopes</span>
+                           </div>
+                           <div className="project-create-scope-options">
+                             {section.items.map((item) => {
+                               const isChecked = selectedPresetScopeIds.includes(item.id)
+
+                               return (
+                                 <label className="project-create-scope-option" key={item.id}>
+                                   <input
+                                     checked={isChecked}
+                                     onChange={() => handleTogglePresetScope(item.id)}
+                                     type="checkbox"
+                                   />
+                                   <div>
+                                     <strong>{item.item_name}</strong>
+                                     <span>
+                                       {item.item_code} · {item.unit}
+                                     </span>
+                                   </div>
+                                 </label>
+                               )
+                             })}
+                           </div>
+                         </section>
+                       ))}
+                     </div>
+                   )}
+                 </div>
                  <label className="project-create-field">
-                   Project name
-                   <input
+                    Project name
+                    <input
                     onChange={(event) =>
                       setProjectForm((current) => ({ ...current, name: event.target.value }))
                     }
@@ -443,7 +594,7 @@ export const DashboardPage = () => {
                               {project.project_id ? (
                                 <select
                                   aria-label={`Status for ${project.name ?? 'project'}`}
-                                  className={`status-select status-select-${project.status ?? 'draft'}`}
+                                  className={`status-select status-select-${normalizeProjectStatus(project.status)}`}
                                   disabled={updatingProjectId === project.project_id}
                                   onChange={(event) => {
                                     void handleProjectStatusChange(
@@ -451,9 +602,9 @@ export const DashboardPage = () => {
                                       event.target.value as ProjectStatus,
                                     )
                                   }}
-                                  value={project.status ?? 'draft'}
+                                  value={normalizeProjectStatus(project.status)}
                                 >
-                                  {projectStatusOptions.map((status) => (
+                                  {visibleProjectStatusOptions.map((status) => (
                                     <option key={status} value={status}>
                                       {projectStatusLabelMap[status]}
                                     </option>
@@ -491,11 +642,21 @@ export const DashboardPage = () => {
                                    >
                                      •••
                                    </button>
-                                   {actionMenuProjectId === project.project_id ? (
-                                     <div className="project-row-actions-menu">
-                                       {project.status !== 'archived' ? (
-                                         <button
-                                           className="project-row-actions-item"
+                                    {actionMenuProjectId === project.project_id ? (
+                                      <div className="project-row-actions-menu">
+                                        <button
+                                          className="project-row-actions-item"
+                                          disabled={actioningProjectId === project.project_id}
+                                          onClick={() => {
+                                            void handleDuplicateProject(project)
+                                          }}
+                                          type="button"
+                                        >
+                                          Duplicate
+                                        </button>
+                                        {project.status !== 'archived' ? (
+                                          <button
+                                            className="project-row-actions-item"
                                            disabled={actioningProjectId === project.project_id}
                                            onClick={() => {
                                              void handleArchiveProject(project.project_id ?? '')
@@ -563,7 +724,7 @@ export const DashboardPage = () => {
                               {project.project_id ? (
                                 <select
                                   aria-label={`Status for ${project.name ?? 'project'}`}
-                                  className={`status-select status-select-${project.status ?? 'draft'}`}
+                                  className={`status-select status-select-${normalizeProjectStatus(project.status)}`}
                                   disabled={updatingProjectId === project.project_id}
                                   onChange={(event) => {
                                     void handleProjectStatusChange(
@@ -571,9 +732,9 @@ export const DashboardPage = () => {
                                       event.target.value as ProjectStatus,
                                     )
                                   }}
-                                  value={project.status ?? 'draft'}
+                                  value={normalizeProjectStatus(project.status)}
                                 >
-                                  {projectStatusOptions.map((status) => (
+                                  {visibleProjectStatusOptions.map((status) => (
                                     <option key={status} value={status}>
                                       {projectStatusLabelMap[status]}
                                     </option>
@@ -604,11 +765,21 @@ export const DashboardPage = () => {
                                 >
                                   •••
                                 </button>
-                                {actionMenuProjectId === project.project_id ? (
-                                  <div className="project-row-actions-menu">
-                                    {project.status !== 'archived' ? (
-                                      <button
-                                        className="project-row-actions-item"
+                                 {actionMenuProjectId === project.project_id ? (
+                                   <div className="project-row-actions-menu">
+                                     <button
+                                       className="project-row-actions-item"
+                                       disabled={actioningProjectId === project.project_id}
+                                       onClick={() => {
+                                         void handleDuplicateProject(project)
+                                       }}
+                                       type="button"
+                                     >
+                                       Duplicate
+                                     </button>
+                                     {project.status !== 'archived' ? (
+                                       <button
+                                         className="project-row-actions-item"
                                         disabled={actioningProjectId === project.project_id}
                                         onClick={() => {
                                           void handleArchiveProject(project.project_id ?? '')

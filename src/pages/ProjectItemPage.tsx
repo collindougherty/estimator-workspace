@@ -4,16 +4,8 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { CompanyLibraryPanel } from '../components/CompanyLibraryPanel'
 import { MetricCard } from '../components/MetricCard'
 import { StatusBadge } from '../components/StatusBadge'
+import { useCompanyLibrary } from '../hooks/useCompanyLibrary'
 import {
-  createOrganizationEmployeeLibraryItem,
-  createOrganizationEquipmentLibraryItem,
-  createOrganizationMaterialLibraryItem,
-  deleteOrganizationEmployeeLibraryItem,
-  deleteOrganizationEquipmentLibraryItem,
-  deleteOrganizationMaterialLibraryItem,
-  fetchOrganizationEmployeeLibrary,
-  fetchOrganizationEquipmentLibrary,
-  fetchOrganizationMaterialLibrary,
   fetchProjectItemMetric,
   fetchProjectSummary,
   updateProjectActuals,
@@ -28,15 +20,7 @@ import {
   parseNumericInput,
   roundCurrencyValue,
 } from '../lib/item-detail'
-import type {
-  OrganizationEmployeeLibraryItem,
-  OrganizationEquipmentLibraryItem,
-  OrganizationMaterialLibraryItem,
-  ProjectEstimateItemUpdate,
-  ProjectItemActualUpdate,
-  ProjectItemMetric,
-  ProjectSummary,
-} from '../lib/models'
+import type { ProjectEstimateItemUpdate, ProjectItemActualUpdate, ProjectItemMetric, ProjectSummary } from '../lib/models'
 import {
   actualEquipmentBreakdownShouldReset,
   actualLaborBreakdownShouldReset,
@@ -106,9 +90,6 @@ export const ProjectItemPage = () => {
   const { itemId, projectId } = useParams()
   const [project, setProject] = useState<ProjectSummary | null>(null)
   const [item, setItem] = useState<ProjectItemMetric | null>(null)
-  const [employeeLibrary, setEmployeeLibrary] = useState<OrganizationEmployeeLibraryItem[]>([])
-  const [equipmentLibrary, setEquipmentLibrary] = useState<OrganizationEquipmentLibraryItem[]>([])
-  const [materialLibrary, setMaterialLibrary] = useState<OrganizationMaterialLibraryItem[]>([])
   const [estimateForm, setEstimateForm] = useState<EstimateFormState | null>(null)
   const [trackingForm, setTrackingForm] = useState<TrackingFormState | null>(null)
   const [customUnits, setCustomUnits] = useState<string[]>([])
@@ -116,22 +97,24 @@ export const ProjectItemPage = () => {
   const [selectedMaterialPresetId, setSelectedMaterialPresetId] = useState('')
   const [selectedEquipmentPresetId, setSelectedEquipmentPresetId] = useState('')
   const [isCompanyLibraryOpen, setIsCompanyLibraryOpen] = useState(false)
-  const [isLibrarySaving, setIsLibrarySaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [screenError, setScreenError] = useState<string | null>(null)
-
-  const loadCompanyLibraries = useCallback(async (organizationId: string) => {
-    const [nextEmployees, nextEquipment, nextMaterials] = await Promise.all([
-      fetchOrganizationEmployeeLibrary(organizationId),
-      fetchOrganizationEquipmentLibrary(organizationId),
-      fetchOrganizationMaterialLibrary(organizationId),
-    ])
-
-    setEmployeeLibrary(nextEmployees)
-    setEquipmentLibrary(nextEquipment)
-    setMaterialLibrary(nextMaterials)
-  }, [])
+  const {
+    createEmployee: handleCreateEmployeeLibraryItem,
+    createEquipment: handleCreateEquipmentLibraryItem,
+    createMaterial: handleCreateMaterialLibraryItem,
+    deleteEmployee: handleDeleteEmployeeLibraryItem,
+    deleteEquipment: handleDeleteEquipmentLibraryItem,
+    deleteMaterial: handleDeleteMaterialLibraryItem,
+    employees: employeeLibrary,
+    equipment: equipmentLibrary,
+    isBusy: isLibrarySaving,
+    materials: materialLibrary,
+  } = useCompanyLibrary({
+    onError: setScreenError,
+    organizationId: project?.organization_id,
+  })
 
   const loadItem = useCallback(async () => {
     if (!projectId || !itemId) {
@@ -146,14 +129,6 @@ export const ProjectItemPage = () => {
         fetchProjectSummary(projectId),
         fetchProjectItemMetric(itemId),
       ])
-
-      if (nextProject?.organization_id) {
-        await loadCompanyLibraries(nextProject.organization_id)
-      } else {
-        setEmployeeLibrary([])
-        setEquipmentLibrary([])
-        setMaterialLibrary([])
-      }
 
       setProject(nextProject)
       setItem(nextItem)
@@ -172,7 +147,7 @@ export const ProjectItemPage = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [itemId, loadCompanyLibraries, projectId])
+  }, [itemId, projectId])
 
   useEffect(() => {
     void loadItem()
@@ -447,90 +422,6 @@ export const ProjectItemPage = () => {
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const getProjectOrganizationId = () => {
-    if (!project?.organization_id) {
-      throw new Error('Project organization is unavailable')
-    }
-
-    return project.organization_id
-  }
-
-  const runCompanyLibraryMutation = async (mutation: (organizationId: string) => Promise<void>) => {
-    setIsLibrarySaving(true)
-    setScreenError(null)
-
-    try {
-      const organizationId = getProjectOrganizationId()
-      await mutation(organizationId)
-      await loadCompanyLibraries(organizationId)
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error ? caughtError.message : 'Unable to update company library'
-      setScreenError(message)
-      throw caughtError
-    } finally {
-      setIsLibrarySaving(false)
-    }
-  }
-
-  const handleCreateEmployeeLibraryItem = async (draft: {
-    hourlyRate: number
-    name: string
-    role: string
-  }) => {
-    await runCompanyLibraryMutation(async (organizationId) => {
-      await createOrganizationEmployeeLibraryItem({
-        organization_id: organizationId,
-        name: draft.name,
-        role: draft.role || null,
-        hourly_rate: draft.hourlyRate,
-      })
-    })
-  }
-
-  const handleDeleteEmployeeLibraryItem = async (itemIdToDelete: string) => {
-    await runCompanyLibraryMutation(async () => {
-      await deleteOrganizationEmployeeLibraryItem(itemIdToDelete)
-    })
-  }
-
-  const handleCreateEquipmentLibraryItem = async (draft: { dailyRate: number; name: string }) => {
-    await runCompanyLibraryMutation(async (organizationId) => {
-      await createOrganizationEquipmentLibraryItem({
-        organization_id: organizationId,
-        name: draft.name,
-        daily_rate: draft.dailyRate,
-      })
-    })
-  }
-
-  const handleDeleteEquipmentLibraryItem = async (itemIdToDelete: string) => {
-    await runCompanyLibraryMutation(async () => {
-      await deleteOrganizationEquipmentLibraryItem(itemIdToDelete)
-    })
-  }
-
-  const handleCreateMaterialLibraryItem = async (draft: {
-    costPerUnit: number
-    name: string
-    unit: string
-  }) => {
-    await runCompanyLibraryMutation(async (organizationId) => {
-      await createOrganizationMaterialLibraryItem({
-        organization_id: organizationId,
-        name: draft.name,
-        unit: draft.unit,
-        cost_per_unit: draft.costPerUnit,
-      })
-    })
-  }
-
-  const handleDeleteMaterialLibraryItem = async (itemIdToDelete: string) => {
-    await runCompanyLibraryMutation(async () => {
-      await deleteOrganizationMaterialLibraryItem(itemIdToDelete)
-    })
   }
 
   const handleApplyMaterialPreset = (value: string) => {

@@ -11,6 +11,7 @@ RAW_ROOFING_DIR = MODEL_ROOT / "data" / "raw" / "roofing"
 RAW_SARPY_CSV = MODEL_ROOT / "data" / "raw" / "properties" / "sarpy_county" / "sarpy_properties_model_ready.csv"
 PROCESSED_DIR = MODEL_ROOT / "data" / "processed"
 MULTICOUNTY_DIR = PROCESSED_DIR / "multicounty"
+OUTPUT_DIR = MODEL_ROOT / "output" / "v1"
 SCRIPTS_DIR = MODEL_ROOT / "scripts"
 DOUGLAS_PROPERTY_SOURCE = Path("/Users/collindougherty/MyCloud/properties/omaha_properties_raw_master.csv")
 
@@ -25,6 +26,8 @@ def main() -> None:
     parser.add_argument("--start-date", default="2025-11-01")
     parser.add_argument("--end-date", default="2026-04-14")
     parser.add_argument("--permit-key", default="residential_reroof")
+    parser.add_argument("--permit-csv", type=Path, help="Use an existing permit CSV instead of fetching from the roofing scraper.")
+    parser.add_argument("--cohort-profile", default="residential_roofing_v1")
     parser.add_argument("--detail-workers", type=int, default=1)
     parser.add_argument("--detail-pause-seconds", type=float, default=0.15)
     parser.add_argument(
@@ -34,14 +37,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    stub = f"{args.permit_key}_{args.start_date}_{args.end_date}"
-    permit_csv = RAW_ROOFING_DIR / f"{stub}.csv"
+    if args.permit_csv is not None:
+        permit_csv = args.permit_csv.expanduser().resolve()
+        stub = permit_csv.stem
+    else:
+        stub = f"{args.permit_key}_{args.start_date}_{args.end_date}"
+        permit_csv = RAW_ROOFING_DIR / f"{stub}.csv"
     cohort_csv = PROCESSED_DIR / f"{stub}_cohort.csv"
     metrics_csv = PROCESSED_DIR / f"{stub}_cohort_metrics.csv"
     model_summary_json = PROCESSED_DIR / f"{stub}_cohort_model_summary.json"
     multicounty_join_summary_json = MULTICOUNTY_DIR / f"{stub}_multicounty_join_summary.json"
 
-    if args.refresh_permits or not permit_csv.exists():
+    if args.permit_csv is None and (args.refresh_permits or not permit_csv.exists()):
         run_step(
             [
                 sys.executable,
@@ -69,6 +76,8 @@ def main() -> None:
             str(SCRIPTS_DIR / "prepare_dataset.py"),
             "--permit-csv",
             str(permit_csv),
+            "--cohort-profile",
+            args.cohort_profile,
         ]
     )
     run_step(
@@ -93,6 +102,8 @@ def main() -> None:
             str(SCRIPTS_DIR / "prepare_multicounty_dataset.py"),
             "--permit-csv",
             str(permit_csv),
+            "--cohort-profile",
+            args.cohort_profile,
             "--property-source",
             f"douglas={DOUGLAS_PROPERTY_SOURCE}",
             "--property-source",
@@ -105,12 +116,24 @@ def main() -> None:
             str(SCRIPTS_DIR / "publish_v1_outputs.py"),
             "--cohort-csv",
             str(cohort_csv),
+            "--cohort-profile",
+            args.cohort_profile,
             "--metrics-csv",
             str(metrics_csv),
             "--model-summary-json",
             str(model_summary_json),
             "--multicounty-join-summary-json",
             str(multicounty_join_summary_json),
+        ]
+    )
+    run_step(
+        [
+            sys.executable,
+            str(SCRIPTS_DIR / "build_v1_html_report.py"),
+            "--manifest-json",
+            str(OUTPUT_DIR / "manifest.json"),
+            "--output-html",
+            str(OUTPUT_DIR / "report.html"),
         ]
     )
     print("[v1] complete")

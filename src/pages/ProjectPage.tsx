@@ -7,18 +7,10 @@ import { MetricCard } from '../components/MetricCard'
 import { ProjectEstimateBuilder } from '../components/ProjectEstimateBuilder'
 import { StatusBadge } from '../components/StatusBadge'
 import { TrackingTable } from '../components/TrackingTable'
+import { useCompanyLibrary } from '../hooks/useCompanyLibrary'
 import {
   createProjectScope,
-  createOrganizationEmployeeLibraryItem,
   deleteProjectScope,
-  createOrganizationEquipmentLibraryItem,
-  createOrganizationMaterialLibraryItem,
-  deleteOrganizationEmployeeLibraryItem,
-  deleteOrganizationEquipmentLibraryItem,
-  deleteOrganizationMaterialLibraryItem,
-  fetchOrganizationEmployeeLibrary,
-  fetchOrganizationEquipmentLibrary,
-  fetchOrganizationMaterialLibrary,
   fetchOrganizations,
   fetchProjectItemMetrics,
   fetchProjectSummary,
@@ -30,9 +22,6 @@ import { exportProposalPdf } from '../lib/proposal-pdf'
 import { applyEstimatePatchToProjectItemMetric } from '../lib/project-estimate-builder'
 import { getNextItemCode, getNextSectionCode, sortScopeItems } from '../lib/scope-hierarchy'
 import type {
-  OrganizationEmployeeLibraryItem,
-  OrganizationEquipmentLibraryItem,
-  OrganizationMaterialLibraryItem,
   ProjectEstimateItemUpdate,
   ProjectItemActualUpdate,
   ProjectItemMetric,
@@ -59,28 +48,27 @@ export const ProjectPage = () => {
   const { projectId } = useParams()
   const [project, setProject] = useState<ProjectSummary | null>(null)
   const [items, setItems] = useState<ProjectItemMetric[]>([])
-  const [employeeLibrary, setEmployeeLibrary] = useState<OrganizationEmployeeLibraryItem[]>([])
-  const [equipmentLibrary, setEquipmentLibrary] = useState<OrganizationEquipmentLibraryItem[]>([])
-  const [materialLibrary, setMaterialLibrary] = useState<OrganizationMaterialLibraryItem[]>([])
   const [organizationName, setOrganizationName] = useState('')
   const [isCompanyLibraryOpen, setIsCompanyLibraryOpen] = useState(false)
-  const [isLibrarySaving, setIsLibrarySaving] = useState(false)
   const [isScopeMutating, setIsScopeMutating] = useState(false)
   const [scopeDeleteTarget, setScopeDeleteTarget] = useState<ProjectItemMetric | null>(null)
   const [screenError, setScreenError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-
-  const loadCompanyLibraries = useCallback(async (organizationId: string) => {
-    const [nextEmployees, nextEquipment, nextMaterials] = await Promise.all([
-      fetchOrganizationEmployeeLibrary(organizationId),
-      fetchOrganizationEquipmentLibrary(organizationId),
-      fetchOrganizationMaterialLibrary(organizationId),
-    ])
-
-    setEmployeeLibrary(nextEmployees)
-    setEquipmentLibrary(nextEquipment)
-    setMaterialLibrary(nextMaterials)
-  }, [])
+  const {
+    createEmployee: handleCreateEmployeeLibraryItem,
+    createEquipment: handleCreateEquipmentLibraryItem,
+    createMaterial: handleCreateMaterialLibraryItem,
+    deleteEmployee: handleDeleteEmployeeLibraryItem,
+    deleteEquipment: handleDeleteEquipmentLibraryItem,
+    deleteMaterial: handleDeleteMaterialLibraryItem,
+    employees: employeeLibrary,
+    equipment: equipmentLibrary,
+    isBusy: isLibrarySaving,
+    materials: materialLibrary,
+  } = useCompanyLibrary({
+    onError: setScreenError,
+    organizationId: project?.organization_id,
+  })
 
   const loadProject = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!projectId) {
@@ -99,14 +87,6 @@ export const ProjectPage = () => {
         fetchOrganizations(),
       ])
 
-      if (nextProject?.organization_id) {
-        await loadCompanyLibraries(nextProject.organization_id)
-      } else {
-        setEmployeeLibrary([])
-        setEquipmentLibrary([])
-        setMaterialLibrary([])
-      }
-
       setProject(nextProject)
       setItems(sortScopeItems(nextItems))
       setOrganizationName(
@@ -124,7 +104,7 @@ export const ProjectPage = () => {
         setIsLoading(false)
       }
     }
-  }, [loadCompanyLibraries, projectId])
+  }, [projectId])
 
   useEffect(() => {
     void loadProject()
@@ -195,93 +175,6 @@ export const ProjectPage = () => {
       organizationName,
       project,
       items,
-    })
-  }
-
-  const getProjectOrganizationId = () => {
-    if (!project?.organization_id) {
-      throw new Error('Project organization is unavailable')
-    }
-
-    return project.organization_id
-  }
-
-  const runCompanyLibraryMutation = async <T,>(
-    mutation: (organizationId: string) => Promise<T>,
-  ): Promise<T> => {
-    setIsLibrarySaving(true)
-    setScreenError(null)
-
-    try {
-      const organizationId = getProjectOrganizationId()
-      const result = await mutation(organizationId)
-      await loadCompanyLibraries(organizationId)
-      return result
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error ? caughtError.message : 'Unable to update company library'
-      setScreenError(message)
-      throw caughtError
-    } finally {
-      setIsLibrarySaving(false)
-    }
-  }
-
-  const handleCreateEmployeeLibraryItem = async (draft: {
-    hourlyRate: number
-    name: string
-    role: string
-  }) => {
-    return runCompanyLibraryMutation(async (organizationId) => {
-      return createOrganizationEmployeeLibraryItem({
-        organization_id: organizationId,
-        name: draft.name,
-        role: draft.role || null,
-        hourly_rate: draft.hourlyRate,
-      })
-    })
-  }
-
-  const handleDeleteEmployeeLibraryItem = async (itemIdToDelete: string) => {
-    await runCompanyLibraryMutation(async () => {
-      await deleteOrganizationEmployeeLibraryItem(itemIdToDelete)
-    })
-  }
-
-  const handleCreateEquipmentLibraryItem = async (draft: { dailyRate: number; name: string }) => {
-    return runCompanyLibraryMutation(async (organizationId) => {
-      return createOrganizationEquipmentLibraryItem({
-        organization_id: organizationId,
-        name: draft.name,
-        daily_rate: draft.dailyRate,
-      })
-    })
-  }
-
-  const handleDeleteEquipmentLibraryItem = async (itemIdToDelete: string) => {
-    await runCompanyLibraryMutation(async () => {
-      await deleteOrganizationEquipmentLibraryItem(itemIdToDelete)
-    })
-  }
-
-  const handleCreateMaterialLibraryItem = async (draft: {
-    costPerUnit: number
-    name: string
-    unit: string
-  }) => {
-    return runCompanyLibraryMutation(async (organizationId) => {
-      return createOrganizationMaterialLibraryItem({
-        organization_id: organizationId,
-        name: draft.name,
-        unit: draft.unit,
-        cost_per_unit: draft.costPerUnit,
-      })
-    })
-  }
-
-  const handleDeleteMaterialLibraryItem = async (itemIdToDelete: string) => {
-    await runCompanyLibraryMutation(async () => {
-      await deleteOrganizationMaterialLibraryItem(itemIdToDelete)
     })
   }
 

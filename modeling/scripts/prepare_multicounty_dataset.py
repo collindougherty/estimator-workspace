@@ -6,9 +6,10 @@ import csv
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
-from prepare_dataset import PROPERTY_COLUMNS, engineer_features, summarize_targets
+from prepare_dataset import PROPERTY_COLUMNS, build_cohort, count_values, engineer_features, normalize_address, summarize_targets
 
 MODEL_ROOT = Path(__file__).resolve().parents[1]
 RAW_PROPERTIES_DIR = MODEL_ROOT / "data" / "raw" / "properties" / "multicounty"
@@ -36,7 +37,12 @@ def non_blank_mask(series: pd.Series) -> pd.Series:
     return series.notna() & series.astype(str).str.strip().ne("")
 
 
-def build_county_subset(source_path: Path, permit_pins: set[str], county_label: str) -> tuple[pd.DataFrame, dict[str, object]]:
+def build_county_subset(
+    source_path: Path,
+    permit_pins: set[str],
+    permit_address_keys: set[str],
+    county_label: str,
+) -> tuple[pd.DataFrame, dict[str, object]]:
     columns = profile_source_columns(source_path)
     missing = [column for column in PROPERTY_COLUMNS if column not in columns]
     if missing:
@@ -54,7 +60,8 @@ def build_county_subset(source_path: Path, permit_pins: set[str], county_label: 
         encoding="utf-8-sig",
     ):
         total_rows += len(chunk)
-        filtered = chunk[chunk["pin"].isin(permit_pins)].copy()
+        chunk["property_address_key"] = chunk["property_a"].map(normalize_address)
+        filtered = chunk[chunk["pin"].isin(permit_pins) | chunk["property_address_key"].isin(permit_address_keys)].copy()
         if filtered.empty:
             continue
         matched_rows += len(filtered)
@@ -62,12 +69,12 @@ def build_county_subset(source_path: Path, permit_pins: set[str], county_label: 
             filtered["source_county"] = county_label
         else:
             filtered["source_county"] = filtered["source_county"].fillna(county_label)
-        chunks.append(filtered[PROPERTY_COLUMNS + ["source_county"]])
+        chunks.append(filtered[PROPERTY_COLUMNS + ["source_county", "property_address_key"]])
 
     subset = (
         pd.concat(chunks, ignore_index=True).drop_duplicates(subset=["pin"], keep="first")
         if chunks
-        else pd.DataFrame(columns=PROPERTY_COLUMNS + ["source_county"])
+        else pd.DataFrame(columns=PROPERTY_COLUMNS + ["source_county", "property_address_key"])
     )
     return subset, {
         "county_label": county_label,
@@ -83,6 +90,11 @@ def build_county_subset(source_path: Path, permit_pins: set[str], county_label: 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Join permit data against multiple county property sources.")
     parser.add_argument("--permit-csv", type=Path, required=True)
+    parser.add_argument(
+        "--cohort-profile",
+        default="residential_roofing_v1",
+        help="Filter profile used to define the modeled cohort from the joined permit/property rows.",
+    )
     parser.add_argument(
         "--property-source",
         dest="property_sources",
@@ -119,12 +131,16 @@ def main() -> None:
     company_summary_csv.parent.mkdir(parents=True, exist_ok=True)
 
     permits = pd.read_csv(permit_csv, dtype=str)
+    permits["address_key"] = permits["permit_address"].fillna(permits["address"]).map(normalize_address)
     permit_pins = {pin for pin in permits["parcel_number"].dropna().astype(str).tolist() if pin and pin != "nan"}
+    permit_address_keys = {
+        value for value in permits["address_key"].dropna().astype(str).tolist() if value and value != "nan"
+    }
 
     per_source_stats: list[dict[str, object]] = []
     source_subsets: list[pd.DataFrame] = []
     for county_label, source_path in args.property_sources:
-        subset, stats = build_county_subset(source_path, permit_pins, county_label)
+        subset, stats = build_county_subset(source_path, permit_pins, permit_address_keys, county_label)
         per_source_stats.append(stats)
         if not subset.empty:
             source_subsets.append(subset)
@@ -132,38 +148,58 @@ def main() -> None:
     property_subset = (
         pd.concat(source_subsets, ignore_index=True).drop_duplicates(subset=["pin"], keep="first")
         if source_subsets
-        else pd.DataFrame(columns=PROPERTY_COLUMNS + ["source_county"])
+        else pd.DataFrame(columns=PROPERTY_COLUMNS + ["source_county", "property_address_key"])
     )
     property_subset.to_csv(property_subset_csv, index=False)
 
-    joined = permits.merge(property_subset, left_on="parcel_number", right_on="pin", how="left", indicator=True)
+    pin_join = permits.merge(property_subset, left_on="parcel_number", right_on="pin", how="left", suffixes=("", "_pin"))
+    address_lookup = property_subset.drop_duplicates(subset=["property_address_key"]).rename(
+        columns={column: f"{column}_addr" for column in property_subset.columns if column != "property_address_key"}
+    )
+    address_join = permits.merge(address_lookup, left_on="address_key", right_on="property_address_key", how="left")
+
+    joined = pin_join.copy()
+    property_columns = [column for column in property_subset.columns if column != "property_address_key"]
+    for column in property_columns:
+        addr_column = f"{column}_addr"
+        if addr_column in address_join.columns:
+            joined[column] = joined[column].fillna(address_join[addr_column])
+    joined["property_address_key"] = joined["property_address_key"].fillna(address_join["property_address_key"])
+    joined["join_method"] = np.where(
+        joined["pin"].notna(),
+        "pin",
+        np.where(address_join.get("pin_addr", pd.Series(index=joined.index)).notna(), "address", "unmatched"),
+    )
+    joined["_merge"] = np.where(joined["join_method"] == "unmatched", "left_only", "both")
     joined = engineer_features(joined)
     joined.to_csv(joined_output_csv, index=False)
 
-    cohort = joined[
-        (joined["_merge"] == "both")
-        & (joined["job_value"].fillna(0) > 0)
-        & (joined["status"].fillna("").isin(["Issued", "Closed"]))
-        & (joined["class"].fillna("") == "R")
-        & (joined["bldg_sf"].notna())
-        & (joined["total_valu"].notna())
-        & ((joined["number_of_buildings"].isna()) | (joined["number_of_buildings"] <= 1))
-    ].copy()
-    cohort = cohort.sort_values(["record_date", "record_number"]).reset_index(drop=True)
+    cohort = build_cohort(joined, args.cohort_profile)
     cohort.to_csv(cohort_output_csv, index=False)
+
+    permits_with_job_value = permits.loc[pd.to_numeric(permits["job_value"], errors="coerce").notna()].copy()
 
     join_summary = {
         "permit_rows": int(len(permits)),
-        "permit_rows_with_job_value": int(pd.to_numeric(permits["job_value"], errors="coerce").notna().sum()),
+        "cohort_profile": args.cohort_profile,
+        "permit_rows_with_job_value": int(len(permits_with_job_value)),
         "permit_rows_with_parcel_number": int(permits["parcel_number"].notna().sum()),
+        "permit_rows_by_permit_type": count_values(permits, "permit_type"),
+        "permit_rows_with_job_value_by_permit_type": count_values(permits_with_job_value, "permit_type"),
+        "permit_rows_by_category": count_values(permits, "category"),
         "property_subset_rows": int(len(property_subset)),
         "subset_rows_by_source": property_subset["source_county"].fillna("Unknown").value_counts().to_dict(),
         "joined_rows": int(len(joined)),
         "matched_rows": int((joined["_merge"] == "both").sum()),
         "matched_rows_by_source": joined.loc[joined["_merge"] == "both", "source_county"].fillna("Unknown").value_counts().to_dict(),
         "match_rate": float((joined["_merge"] == "both").mean()) if len(joined) else 0.0,
+        "pin_matches": int((joined["join_method"] == "pin").sum()),
+        "address_matches": int((joined["join_method"] == "address").sum()),
         "cohort_rows": int(len(cohort)),
         "cohort_rows_by_source": cohort["source_county"].fillna("Unknown").value_counts().to_dict(),
+        "cohort_rows_by_permit_type": count_values(cohort, "permit_type"),
+        "cohort_rows_by_category": count_values(cohort, "category"),
+        "cohort_rows_by_class": count_values(cohort, "class"),
         "cohort_start_date": cohort["record_date"].min().strftime("%Y-%m-%d") if len(cohort) else None,
         "cohort_end_date": cohort["record_date"].max().strftime("%Y-%m-%d") if len(cohort) else None,
         "median_job_value": float(cohort["job_value"].median()) if len(cohort) else None,

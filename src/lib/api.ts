@@ -15,7 +15,10 @@ import type {
   OrganizationMaterialLibraryItemUpdate,
   PresetWbsItem,
   Profile,
+  ProjectEstimateItem,
+  ProjectEstimateItemInsert,
   ProjectEstimateItemUpdate,
+  ProjectInsert,
   ProjectItemActualUpdate,
   ProjectItemMetric,
   ProjectStatus,
@@ -26,6 +29,65 @@ const throwOnError = (error: { message: string } | null) => {
   if (error) {
     throw new Error(error.message)
   }
+}
+
+const getAuthenticatedUserId = async () => {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
+
+  throwOnError(error)
+  return user?.id ?? null
+}
+
+const insertProjectWithEstimateItems = async (params: {
+  estimateItems: Array<Omit<ProjectEstimateItemInsert, 'project_id'>>
+  project: ProjectInsert
+}) => {
+  const { data: createdProject, error: createProjectError } = await supabase
+    .from('projects')
+    .insert(params.project)
+    .select('id')
+    .single()
+
+  throwOnError(createProjectError)
+
+  if (!createdProject) {
+    throw new Error('Unable to create project')
+  }
+
+  if (params.estimateItems.length === 0) {
+    return createdProject.id
+  }
+
+  const { data: createdItems, error: createItemsError } = await supabase
+    .from('project_estimate_items')
+    .insert(
+      params.estimateItems.map((item) => ({
+        ...item,
+        project_id: createdProject.id,
+      })),
+    )
+    .select('id')
+
+  if (createItemsError || !createdItems?.length) {
+    await supabase.from('projects').delete().eq('id', createdProject.id)
+    throw new Error(createItemsError?.message ?? 'Unable to create project scopes')
+  }
+
+  const { error: createActualsError } = await supabase.from('project_item_actuals').insert(
+    createdItems.map((item) => ({
+      project_estimate_item_id: item.id,
+    })),
+  )
+
+  if (createActualsError) {
+    await supabase.from('projects').delete().eq('id', createdProject.id)
+    throw new Error(createActualsError.message)
+  }
+
+  return createdProject.id
 }
 
 export const signInWithPassword = async (email: string, password: string) => {
@@ -304,19 +366,117 @@ export const createProjectFromPreset = async (params: {
   location: string
   bidDueDate: string
   notes: string
+  presetItemIds?: string[]
 }) => {
-  const { data, error } = await supabase.rpc('create_project_from_preset', {
-    p_organization_id: params.organizationId,
-    p_preset_id: params.presetId,
-    p_name: params.name,
-    p_customer_name: params.customerName || undefined,
-    p_location: params.location || undefined,
-    p_bid_due_date: params.bidDueDate || undefined,
-    p_notes: params.notes || undefined,
-  })
+  const [presetItems, createdBy] = await Promise.all([
+    fetchPresetWbsItems(params.presetId),
+    getAuthenticatedUserId(),
+  ])
 
-  throwOnError(error)
-  return data
+  const selectedPresetItemIds = params.presetItemIds ? new Set(params.presetItemIds) : null
+  const usingCustomSelection = Array.isArray(params.presetItemIds)
+  const scopedPresetItems = selectedPresetItemIds
+    ? presetItems.filter((item) => selectedPresetItemIds.has(item.id))
+    : presetItems
+
+  if (usingCustomSelection && params.presetItemIds?.length === 0) {
+    throw new Error('Select at least one scope')
+  }
+
+  if (usingCustomSelection && scopedPresetItems.length === 0) {
+    throw new Error('Select at least one scope')
+  }
+
+  return insertProjectWithEstimateItems({
+    estimateItems: scopedPresetItems.map((presetItem) => ({
+      equipment_days: presetItem.default_equipment_days,
+      equipment_rate: presetItem.default_equipment_rate,
+      is_included: usingCustomSelection ? true : presetItem.active_default,
+      item_code: presetItem.item_code,
+      item_name: presetItem.item_name,
+      labor_hours: presetItem.default_labor_hours,
+      labor_rate: presetItem.default_labor_rate,
+      material_cost: presetItem.default_material_cost,
+      overhead_percent: presetItem.default_overhead_percent,
+      preset_item_id: presetItem.id,
+      profit_percent: presetItem.default_profit_percent,
+      quantity: presetItem.default_quantity,
+      section_code: presetItem.section_code,
+      section_name: presetItem.section_name,
+      sort_order: presetItem.sort_order,
+      subcontract_cost: presetItem.default_subcontract_cost,
+      unit: presetItem.unit,
+    })),
+    project: {
+      bid_due_date: params.bidDueDate || undefined,
+      created_by: createdBy,
+      customer_name: params.customerName || undefined,
+      location: params.location || undefined,
+      name: params.name,
+      notes: params.notes || undefined,
+      organization_id: params.organizationId,
+      preset_id: params.presetId,
+      status: 'bidding',
+    },
+  })
+}
+
+export const duplicateProject = async (projectId: string) => {
+  const [sourceProject, sourceItems, createdBy] = await Promise.all([
+    fetchProjectSummary(projectId),
+    supabase
+      .from('project_estimate_items')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('sort_order', { ascending: true }),
+    getAuthenticatedUserId(),
+  ])
+
+  if (!sourceProject?.organization_id) {
+    throw new Error('Project is unavailable')
+  }
+
+  throwOnError(sourceItems.error)
+
+  const clonedEstimateItems =
+    sourceItems.data?.map((item: ProjectEstimateItem) => ({
+      equipment_breakdown: item.equipment_breakdown,
+      equipment_days: item.equipment_days,
+      equipment_rate: item.equipment_rate,
+      is_included: item.is_included,
+      item_code: item.item_code,
+      item_name: item.item_name,
+      labor_breakdown: item.labor_breakdown,
+      labor_hours: item.labor_hours,
+      labor_rate: item.labor_rate,
+      material_breakdown: item.material_breakdown,
+      material_cost: item.material_cost,
+      notes: item.notes,
+      overhead_percent: item.overhead_percent,
+      preset_item_id: item.preset_item_id,
+      profit_percent: item.profit_percent,
+      quantity: item.quantity,
+      section_code: item.section_code,
+      section_name: item.section_name,
+      sort_order: item.sort_order,
+      subcontract_cost: item.subcontract_cost,
+      unit: item.unit,
+    })) ?? []
+
+  return insertProjectWithEstimateItems({
+    estimateItems: clonedEstimateItems,
+    project: {
+      bid_due_date: sourceProject.bid_due_date,
+      created_by: createdBy,
+      customer_name: sourceProject.customer_name,
+      location: sourceProject.location,
+      name: `${sourceProject.name ?? 'Project'} copy`,
+      notes: sourceProject.notes,
+      organization_id: sourceProject.organization_id,
+      preset_id: sourceProject.preset_id,
+      status: 'bidding',
+    },
+  })
 }
 
 export const createProjectScope = async (params: {
