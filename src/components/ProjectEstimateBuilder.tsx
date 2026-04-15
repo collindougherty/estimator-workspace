@@ -118,8 +118,10 @@ const BucketButton = ({
     onClick={onClick}
     type="button"
   >
-    <span>{label}</span>
-    <strong>{amount}</strong>
+    <div className="project-builder-bucket-button-head">
+      <span>{label}</span>
+      <strong>{amount}</strong>
+    </div>
     <small>{summary}</small>
   </button>
 )
@@ -695,35 +697,37 @@ export const ProjectEstimateBuilder = ({
 
   return (
     <div className="project-builder-shell">
-      <div className="project-builder-summary-grid">
-        <div className="project-builder-summary-card">
-          <span>Included scopes</span>
-          <strong>
-            {builderSummary.includedCount}/{builderSummary.itemCount}
-          </strong>
-          <small>{formatCurrency(builderSummary.includedTotal)}</small>
+      <aside className="project-builder-summary-shell">
+        <div className="project-builder-summary-grid">
+          <div className="project-builder-summary-card project-builder-summary-card-strong">
+            <span>Estimate total</span>
+            <strong>{formatCurrency(builderSummary.includedTotal)}</strong>
+            <small>Included scope estimate</small>
+          </div>
+          <div className="project-builder-summary-card">
+            <span>Included scopes</span>
+            <strong>
+              {builderSummary.includedCount}/{builderSummary.itemCount}
+            </strong>
+            <small>{formatCurrency(builderSummary.includedTotal)}</small>
+          </div>
+          <div className="project-builder-summary-card">
+            <span>Materials</span>
+            <strong>{formatCurrency(builderSummary.materials)}</strong>
+            <small>Visible on each picker</small>
+          </div>
+          <div className="project-builder-summary-card">
+            <span>Labor</span>
+            <strong>{formatCurrency(builderSummary.labor)}</strong>
+            <small>Hours + rates</small>
+          </div>
+          <div className="project-builder-summary-card">
+            <span>Equipment</span>
+            <strong>{formatCurrency(builderSummary.equipment)}</strong>
+            <small>Days + daily rates</small>
+          </div>
         </div>
-        <div className="project-builder-summary-card">
-          <span>Materials</span>
-          <strong>{formatCurrency(builderSummary.materials)}</strong>
-          <small>Visible on each picker</small>
-        </div>
-        <div className="project-builder-summary-card">
-          <span>Labor</span>
-          <strong>{formatCurrency(builderSummary.labor)}</strong>
-          <small>Hours + rates</small>
-        </div>
-        <div className="project-builder-summary-card">
-          <span>Equipment</span>
-          <strong>{formatCurrency(builderSummary.equipment)}</strong>
-          <small>Days + daily rates</small>
-        </div>
-        <div className="project-builder-summary-card project-builder-summary-card-strong">
-          <span>Estimate total</span>
-          <strong>{formatCurrency(builderSummary.includedTotal)}</strong>
-          <small>Included scope estimate</small>
-        </div>
-      </div>
+      </aside>
 
       <div className="project-builder-section-list">
         {sectionGroups.map((section) => (
@@ -754,137 +758,144 @@ export const ProjectEstimateBuilder = ({
                     className={'project-builder-card' + (draft.isIncluded ? '' : ' project-builder-card-muted')}
                     key={key}
                   >
-                    <div className="project-builder-card-header">
-                      <div className="project-builder-card-copy">
-                        <div className="project-builder-card-tags">
-                          {!readOnly ? (
-                            <label className="project-builder-include-toggle">
+                    <div className="project-builder-card-layout">
+                      <div className="project-builder-card-main">
+                        <div className="project-builder-card-header">
+                          <div className="project-builder-card-copy">
+                            <div className="project-builder-card-tags">
+                              {!readOnly ? (
+                                <label className="project-builder-include-toggle">
+                                  <input
+                                    aria-label={'Toggle ' + (draft.itemName || 'scope item')}
+                                    checked={draft.isIncluded}
+                                    onChange={(event) => {
+                                      updateDraft(key, { isIncluded: event.target.checked }, true)
+                                    }}
+                                    type="checkbox"
+                                  />
+                                  <span>{draft.isIncluded ? 'Included' : 'Excluded'}</span>
+                                </label>
+                              ) : (
+                                <span className="worksheet-mobile-flag">
+                                  {draft.isIncluded ? 'Included' : 'Excluded'}
+                                </span>
+                              )}
+                              <span className="scope-code-pill mono">{item.item_code}</span>
+                              <span className="scope-unit-pill">{draft.unit}</span>
+                            </div>
+                            {readOnly ? (
+                              <strong className="project-builder-card-title">{draft.itemName}</strong>
+                            ) : (
                               <input
-                                aria-label={'Toggle ' + (draft.itemName || 'scope item')}
-                                checked={draft.isIncluded}
-                                onChange={(event) => {
-                                  updateDraft(key, { isIncluded: event.target.checked }, true)
-                                }}
-                                type="checkbox"
+                                aria-label={(item.item_code ?? 'Scope') + ' scope name'}
+                                className="project-builder-name-input"
+                                onBlur={() => flushAutoSave(key, draft)}
+                                onChange={(event) => updateDraft(key, { itemName: event.target.value })}
+                                type="text"
+                                value={draft.itemName}
                               />
-                              <span>{draft.isIncluded ? 'Included' : 'Excluded'}</span>
-                            </label>
-                          ) : (
-                            <span className="worksheet-mobile-flag">
-                              {draft.isIncluded ? 'Included' : 'Excluded'}
-                            </span>
-                          )}
-                          <span className="scope-code-pill mono">{item.item_code}</span>
-                          <span className="scope-unit-pill">{draft.unit}</span>
+                            )}
+                          </div>
                         </div>
-                        {readOnly ? (
-                          <strong className="project-builder-card-title">{draft.itemName}</strong>
-                        ) : (
-                          <input
-                            aria-label={(item.item_code ?? 'Scope') + ' scope name'}
-                            className="project-builder-name-input"
-                            onBlur={() => flushAutoSave(key, draft)}
-                            onChange={(event) => updateDraft(key, { itemName: event.target.value })}
-                            type="text"
-                            value={draft.itemName}
-                          />
-                        )}
+
+                        <div className="project-builder-fields-grid">
+                          <label className="project-builder-field">
+                            <span>Quantity</span>
+                            <input
+                              aria-label={(item.item_name ?? 'Scope item') + ' quantity'}
+                              disabled={readOnly}
+                              min="0"
+                              onBlur={() => flushAutoSave(key, draft)}
+                              onChange={(event) => updateDraft(key, { quantity: event.target.value })}
+                              step="0.1"
+                              type="number"
+                              value={draft.quantity}
+                            />
+                          </label>
+                          <label className="project-builder-field">
+                            <span>Unit</span>
+                            <select
+                              className="item-detail-select"
+                              disabled={readOnly}
+                              onChange={(event) => handleUnitChange(key, event.target.value)}
+                              value={draft.unit}
+                            >
+                              {unitOptions.map((unitOption) => (
+                                <option key={unitOption} value={unitOption}>
+                                  {unitOption}
+                                </option>
+                              ))}
+                              <option value="__add__">+ Add UoM</option>
+                            </select>
+                          </label>
+                          <label className="project-builder-field">
+                            <span>Subcontractor</span>
+                            <input
+                              aria-label={(item.item_name ?? 'Scope item') + ' subcontract cost'}
+                              disabled={readOnly}
+                              min="0"
+                              onBlur={() => flushAutoSave(key, draft)}
+                              onChange={(event) => updateDraft(key, { subcontractCost: event.target.value })}
+                              step="0.01"
+                              type="number"
+                              value={draft.subcontractCost}
+                            />
+                          </label>
+                          <label className="project-builder-field">
+                            <span>O/H %</span>
+                            <input
+                              aria-label={(item.item_name ?? 'Scope item') + ' overhead percent'}
+                              disabled={readOnly}
+                              min="0"
+                              onBlur={() => flushAutoSave(key, draft)}
+                              onChange={(event) => updateDraft(key, { overheadPercent: event.target.value })}
+                              step="1"
+                              type="number"
+                              value={draft.overheadPercent}
+                            />
+                          </label>
+                          <label className="project-builder-field">
+                            <span>Profit %</span>
+                            <input
+                              aria-label={(item.item_name ?? 'Scope item') + ' profit percent'}
+                              disabled={readOnly}
+                              min="0"
+                              onBlur={() => flushAutoSave(key, draft)}
+                              onChange={(event) => updateDraft(key, { profitPercent: event.target.value })}
+                              step="1"
+                              type="number"
+                              value={draft.profitPercent}
+                            />
+                          </label>
+                        </div>
                       </div>
 
-                      <div className="project-builder-card-total">
-                        <span>Total estimate</span>
-                        <strong>{formatCurrency(derived.totalCost)}</strong>
-                        <small className={'row-save-state row-save-' + (rowSaveState[key] ?? 'saved')}>
-                          {getSaveLabel(key)}
-                        </small>
-                      </div>
-                    </div>
+                      <div className="project-builder-card-aside">
+                        <div className="project-builder-card-total">
+                          <span>Total estimate</span>
+                          <strong>{formatCurrency(derived.totalCost)}</strong>
+                          <small className={'row-save-state row-save-' + (rowSaveState[key] ?? 'saved')}>
+                            {getSaveLabel(key)}
+                          </small>
+                        </div>
 
-                    <div className="project-builder-fields-grid">
-                      <label className="project-builder-field">
-                        <span>Quantity</span>
-                        <input
-                          aria-label={(item.item_name ?? 'Scope item') + ' quantity'}
-                          disabled={readOnly}
-                          min="0"
-                          onBlur={() => flushAutoSave(key, draft)}
-                          onChange={(event) => updateDraft(key, { quantity: event.target.value })}
-                          step="0.1"
-                          type="number"
-                          value={draft.quantity}
-                        />
-                      </label>
-                      <label className="project-builder-field">
-                        <span>Unit</span>
-                        <select
-                          className="item-detail-select"
-                          disabled={readOnly}
-                          onChange={(event) => handleUnitChange(key, event.target.value)}
-                          value={draft.unit}
-                        >
-                          {unitOptions.map((unitOption) => (
-                            <option key={unitOption} value={unitOption}>
-                              {unitOption}
-                            </option>
-                          ))}
-                          <option value="__add__">+ Add UoM</option>
-                        </select>
-                      </label>
-                      <label className="project-builder-field">
-                        <span>Subcontractor</span>
-                        <input
-                          aria-label={(item.item_name ?? 'Scope item') + ' subcontract cost'}
-                          disabled={readOnly}
-                          min="0"
-                          onBlur={() => flushAutoSave(key, draft)}
-                          onChange={(event) => updateDraft(key, { subcontractCost: event.target.value })}
-                          step="0.01"
-                          type="number"
-                          value={draft.subcontractCost}
-                        />
-                      </label>
-                      <label className="project-builder-field">
-                        <span>O/H %</span>
-                        <input
-                          aria-label={(item.item_name ?? 'Scope item') + ' overhead percent'}
-                          disabled={readOnly}
-                          min="0"
-                          onBlur={() => flushAutoSave(key, draft)}
-                          onChange={(event) => updateDraft(key, { overheadPercent: event.target.value })}
-                          step="1"
-                          type="number"
-                          value={draft.overheadPercent}
-                        />
-                      </label>
-                      <label className="project-builder-field">
-                        <span>Profit %</span>
-                        <input
-                          aria-label={(item.item_name ?? 'Scope item') + ' profit percent'}
-                          disabled={readOnly}
-                          min="0"
-                          onBlur={() => flushAutoSave(key, draft)}
-                          onChange={(event) => updateDraft(key, { profitPercent: event.target.value })}
-                          step="1"
-                          type="number"
-                          value={draft.profitPercent}
-                        />
-                      </label>
-                      <div className="project-builder-inline-readout">
-                        <span>Direct cost</span>
-                        <strong>{formatCurrency(derived.directCost)}</strong>
-                        <small>
-                          {formatCurrency(derived.overheadCost)} O/H · {formatCurrency(derived.profitCost)} profit
-                        </small>
+                        <div className="project-builder-inline-readout">
+                          <span>Direct cost</span>
+                          <strong>{formatCurrency(derived.directCost)}</strong>
+                          <small>
+                            {formatCurrency(derived.overheadCost)} O/H · {formatCurrency(derived.profitCost)} profit
+                          </small>
+                        </div>
+
+                        <div className="project-builder-card-footer">
+                          <Link className="ghost-button project-builder-advanced-link" to={'/projects/' + projectId + '/items/' + key}>
+                            Advanced editor
+                          </Link>
+                        </div>
                       </div>
                     </div>
 
                     {renderBucketGrid(key, draft, derived)}
-
-                    <div className="project-builder-card-footer">
-                      <Link className="ghost-button project-builder-advanced-link" to={'/projects/' + projectId + '/items/' + key}>
-                        Advanced editor
-                      </Link>
-                    </div>
                   </article>
                 )
               })}

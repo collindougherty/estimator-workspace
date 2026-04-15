@@ -41,7 +41,7 @@ const signInDemoUser = async (page: Page) => {
 }
 
 test('dashboard, tracking fallback, and two-page bid builder render cleanly', async ({ page }) => {
-  mkdirSync('artifacts/iteration-10-two-page-builder', { recursive: true })
+  mkdirSync('artifacts/iteration-11-builder-layout', { recursive: true })
 
   await signInDemoUser(page)
 
@@ -49,7 +49,7 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await expect(page.getByText('ProjectBuilder')).toBeVisible()
   await expect(page.getByRole('link', { name: /Pine Court Storm Repair/i })).toBeVisible()
   await page.screenshot({
-    path: 'artifacts/iteration-10-two-page-builder/dashboard.png',
+    path: 'artifacts/iteration-11-builder-layout/dashboard.png',
     fullPage: true,
   })
 
@@ -57,7 +57,7 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await expect(page.getByRole('heading', { name: 'Pine Court Storm Repair' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Terminal items' })).toBeVisible()
   await page.screenshot({
-    path: 'artifacts/iteration-10-two-page-builder/project-tracking-list.png',
+    path: 'artifacts/iteration-11-builder-layout/project-tracking-list.png',
     fullPage: true,
   })
 
@@ -66,7 +66,7 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await expect(page.getByLabel('Actual quantity')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Billing + overhead' })).toBeVisible()
   await page.screenshot({
-    path: 'artifacts/iteration-10-two-page-builder/item-tracking-detail.png',
+    path: 'artifacts/iteration-11-builder-layout/item-tracking-detail.png',
     fullPage: true,
   })
 
@@ -80,7 +80,7 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await expect(page.getByRole('heading', { name: 'Bid builder' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Materials' }).first()).toBeVisible()
   await page.screenshot({
-    path: 'artifacts/iteration-10-two-page-builder/project-bid-builder.png',
+    path: 'artifacts/iteration-11-builder-layout/project-bid-builder.png',
     fullPage: true,
   })
 
@@ -89,7 +89,7 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await expect(materialsDialog.getByRole('heading', { name: 'Materials picker' })).toBeVisible()
   await expect(materialsDialog.getByRole('searchbox')).toBeVisible()
   await materialsDialog.screenshot({
-    path: 'artifacts/iteration-10-two-page-builder/materials-picker.png',
+    path: 'artifacts/iteration-11-builder-layout/materials-picker.png',
   })
   await page.getByRole('button', { name: 'Close' }).click()
 
@@ -97,7 +97,7 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   const libraryDialog = page.getByRole('dialog')
   await expect(libraryDialog.getByRole('heading', { name: 'Company library' })).toBeVisible()
   await libraryDialog.screenshot({
-    path: 'artifacts/iteration-10-two-page-builder/company-library.png',
+    path: 'artifacts/iteration-11-builder-layout/company-library.png',
   })
   await page.getByRole('button', { name: 'Close' }).click()
 
@@ -107,7 +107,7 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await expect(page.getByLabel('Unit of measure')).toBeVisible()
   await expect(page.getByLabel('Cost / unit')).toBeVisible()
   await page.screenshot({
-    path: 'artifacts/iteration-10-two-page-builder/item-estimate-advanced.png',
+    path: 'artifacts/iteration-11-builder-layout/item-estimate-advanced.png',
     fullPage: true,
   })
 
@@ -132,14 +132,14 @@ test.describe('iphone layout', () => {
   })
 
   test('mobile bid builder sheets and advanced fallback render cleanly', async ({ page }) => {
-    mkdirSync('artifacts/iteration-10-two-page-builder-mobile', { recursive: true })
+    mkdirSync('artifacts/iteration-11-builder-layout-mobile', { recursive: true })
 
     await signInDemoUser(page)
 
     await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
     await expect(page.locator('.dashboard-mobile-list').first()).toBeVisible()
     await page.screenshot({
-      path: 'artifacts/iteration-10-two-page-builder-mobile/dashboard-iphone13.png',
+      path: 'artifacts/iteration-11-builder-layout-mobile/dashboard-iphone13.png',
       fullPage: true,
     })
 
@@ -147,17 +147,21 @@ test.describe('iphone layout', () => {
     await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Bid builder' })).toBeVisible()
     await page.screenshot({
-      path: 'artifacts/iteration-10-two-page-builder-mobile/project-bid-builder-iphone13.png',
+      path: 'artifacts/iteration-11-builder-layout-mobile/project-bid-builder-iphone13.png',
       fullPage: true,
     })
 
     const firstMobileCard = page.locator('.project-builder-mobile-list details').first()
     await firstMobileCard.locator('summary').click()
+    await page.screenshot({
+      path: 'artifacts/iteration-11-builder-layout-mobile/project-bid-builder-expanded-iphone13.png',
+      fullPage: true,
+    })
     await firstMobileCard.getByRole('button', { name: 'Materials' }).click()
     const materialsDialog = page.getByRole('dialog')
     await expect(materialsDialog.getByRole('heading', { name: 'Materials picker' })).toBeVisible()
     await materialsDialog.screenshot({
-      path: 'artifacts/iteration-10-two-page-builder-mobile/materials-picker-iphone13.png',
+      path: 'artifacts/iteration-11-builder-layout-mobile/materials-picker-iphone13.png',
     })
     await page.getByRole('button', { name: 'Close' }).click()
 
@@ -165,7 +169,7 @@ test.describe('iphone layout', () => {
     const libraryDialog = page.getByRole('dialog')
     await expect(libraryDialog.getByRole('heading', { name: 'Company library' })).toBeVisible()
     await libraryDialog.screenshot({
-      path: 'artifacts/iteration-10-two-page-builder-mobile/company-library-iphone13.png',
+      path: 'artifacts/iteration-11-builder-layout-mobile/company-library-iphone13.png',
     })
     await page.getByRole('button', { name: 'Close' }).click()
 
@@ -174,7 +178,7 @@ test.describe('iphone layout', () => {
     await expect(page.getByLabel('Unit of measure')).toBeVisible()
     await expect(page.getByLabel('Cost / unit')).toBeVisible()
     await page.screenshot({
-      path: 'artifacts/iteration-10-two-page-builder-mobile/item-estimate-advanced-iphone13.png',
+      path: 'artifacts/iteration-11-builder-layout-mobile/item-estimate-advanced-iphone13.png',
       fullPage: true,
     })
   })
