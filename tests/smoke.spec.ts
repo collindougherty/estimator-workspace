@@ -63,6 +63,14 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
     fullPage: true,
   })
 
+  await page.getByRole('button', { name: /Labor/i }).first().click()
+  const laborActualsDialog = page.getByRole('dialog')
+  await expect(laborActualsDialog.getByRole('heading', { name: 'Labor actuals' })).toBeVisible()
+  await laborActualsDialog.screenshot({
+    path: 'artifacts/iteration-11-builder-layout/tracking-labor-actuals.png',
+  })
+  await page.getByRole('button', { name: 'Close' }).click()
+
   await page.getByRole('link', { name: 'Advanced' }).first().click()
   await expect(page).toHaveURL(/\/projects\/.+\/items\//)
   await expect(page.getByRole('heading', { name: 'Quantity + material' })).toBeVisible()
@@ -82,15 +90,15 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Bid builder' })).toBeVisible()
   await expect(page.locator('.project-builder-table')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Materials' }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: /Materials/i }).first()).toBeVisible()
   await page.screenshot({
     path: 'artifacts/iteration-11-builder-layout/project-bid-builder.png',
     fullPage: true,
   })
 
-  await page.getByRole('button', { name: 'Materials' }).first().click()
+  await page.getByRole('button', { name: /Materials/i }).first().click()
   const materialsDialog = page.getByRole('dialog')
-  await expect(materialsDialog.getByRole('heading', { name: 'Materials picker' })).toBeVisible()
+  await expect(materialsDialog.getByRole('heading', { name: 'Materials editor' })).toBeVisible()
   await expect(materialsDialog.getByRole('searchbox')).toBeVisible()
   await materialsDialog.screenshot({
     path: 'artifacts/iteration-11-builder-layout/materials-picker.png',
@@ -163,9 +171,9 @@ test.describe('iphone layout', () => {
       path: 'artifacts/iteration-11-builder-layout-mobile/project-bid-builder-expanded-iphone13.png',
       fullPage: true,
     })
-    await firstMobileCard.getByRole('button', { name: 'Materials' }).click()
+    await firstMobileCard.getByRole('button', { name: /Materials/i }).click()
     const materialsDialog = page.getByRole('dialog')
-    await expect(materialsDialog.getByRole('heading', { name: 'Materials picker' })).toBeVisible()
+    await expect(materialsDialog.getByRole('heading', { name: 'Materials editor' })).toBeVisible()
     await materialsDialog.screenshot({
       path: 'artifacts/iteration-11-builder-layout-mobile/materials-picker-iphone13.png',
     })

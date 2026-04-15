@@ -17,9 +17,10 @@ import {
   type EstimateBuilderDerived,
 } from '../lib/project-estimate-builder'
 import { formatCurrency, formatNumber } from '../lib/formatters'
+import { BucketControlButton } from './BucketControlButton'
 import { FloatingPanel } from './FloatingPanel'
 
-type BucketKey = 'equipment' | 'labor' | 'materials'
+type BucketKey = 'equipment' | 'labor' | 'materials' | 'markup' | 'subcontract'
 type PickerState = {
   bucket: BucketKey
   itemId: string
@@ -56,7 +57,67 @@ const getBucketLabel = (bucket: BucketKey) => {
     return 'Equipment'
   }
 
+  if (bucket === 'subcontract') {
+    return 'Subs'
+  }
+
+  if (bucket === 'markup') {
+    return 'O/H + profit'
+  }
+
   return 'Materials'
+}
+
+const getEstimateBucketTotal = (bucket: BucketKey, derived: EstimateBuilderDerived) => {
+  if (bucket === 'labor') {
+    return derived.laborCost
+  }
+
+  if (bucket === 'equipment') {
+    return derived.equipmentCost
+  }
+
+  if (bucket === 'subcontract') {
+    return derived.subcontractCost
+  }
+
+  if (bucket === 'markup') {
+    return derived.overheadCost + derived.profitCost
+  }
+
+  return derived.materialCost
+}
+
+const getEstimateBucketSummary = (
+  bucket: BucketKey,
+  draft: EstimateBuilderDraft,
+  derived: EstimateBuilderDerived,
+) => {
+  if (bucket === 'labor') {
+    return `${formatNumber(derived.laborHours)} hrs · ${formatCurrency(derived.laborRate)} / hr`
+  }
+
+  if (bucket === 'equipment') {
+    return `${formatNumber(derived.equipmentDays)} days · ${formatCurrency(derived.equipmentRate)} / day`
+  }
+
+  if (bucket === 'subcontract') {
+    return derived.subcontractCost > 0 ? 'Flat subcontract allowance' : 'Tap to add subcontract cost'
+  }
+
+  if (bucket === 'markup') {
+    return `${formatNumber(derived.overheadPercent)}% O/H · ${formatNumber(derived.profitPercent)}% profit`
+  }
+
+  return `${formatNumber(derived.quantity)} ${draft.unit} · ${formatCurrency(derived.materialCostPerUnit)} / unit`
+}
+
+const getEstimateBucketDetail = (bucket: BucketKey, derived: EstimateBuilderDerived) => {
+  if (bucket === 'markup') {
+    return `${formatCurrency(derived.directCost)} direct cost`
+  }
+
+  return undefined
 }
 
 const buildSectionGroups = (
@@ -98,33 +159,6 @@ const buildSectionGroups = (
 
   return Array.from(groups.values())
 }
-
-const BucketButton = ({
-  amount,
-  disabled,
-  label,
-  onClick,
-  summary,
-}: {
-  amount: string
-  disabled: boolean
-  label: string
-  onClick: () => void
-  summary: string
-}) => (
-  <button
-    className="project-builder-bucket-button"
-    disabled={disabled}
-    onClick={onClick}
-    type="button"
-  >
-    <div className="project-builder-bucket-button-head">
-      <span>{label}</span>
-      <strong>{amount}</strong>
-    </div>
-    <small>{summary}</small>
-  </button>
-)
 
 const ResourcePickerPanel = ({
   draft,
@@ -191,22 +225,284 @@ const ResourcePickerPanel = ({
     [materials, searchNeedle],
   )
 
-  const title = getBucketLabel(type) + ' picker'
-  const subtitle = 'Search company prefills, compare rates, and apply values without leaving ' + (item.item_name ?? 'this item') + '.'
+  const bucketLabel = getBucketLabel(type)
+  const isLibraryBucket = type === 'labor' || type === 'equipment' || type === 'materials'
+  const title =
+    type === 'subcontract'
+      ? 'Subcontract editor'
+      : type === 'markup'
+        ? 'O/H + profit editor'
+        : bucketLabel + ' editor'
+  const subtitle =
+    type === 'subcontract'
+      ? 'Set the subcontract allowance for ' + (item.item_name ?? 'this item') + ' from one focused editor.'
+      : type === 'markup'
+        ? 'Set overhead and profit for ' + (item.item_name ?? 'this item') + ' from one focused editor.'
+        : 'Search company prefills, compare rates, and adjust ' +
+          bucketLabel.toLowerCase() +
+          ' without leaving ' +
+          (item.item_name ?? 'this item') +
+          '.'
+  const bucketTotal = getEstimateBucketTotal(type, derived)
 
   return (
     <FloatingPanel
       actions={
-        <button className="secondary-button" onClick={onManageLibrary} type="button">
-          Manage company library
-        </button>
+        isLibraryBucket ? (
+          <button className="secondary-button" onClick={onManageLibrary} type="button">
+            Manage company library
+          </button>
+        ) : undefined
       }
       onClose={onClose}
+      size={isLibraryBucket ? 'wide' : 'compact'}
       title={title}
       subtitle={subtitle}
     >
-      <div className="resource-sheet-grid">
-        <section className="resource-sheet-editor">
+      {isLibraryBucket ? (
+        <div className="resource-sheet-grid">
+          <section className="resource-sheet-editor">
+            <div className="resource-sheet-editor-header">
+              <div>
+                <h3>Current values</h3>
+                <p>
+                  {item.item_code ?? 'Scope'} · {item.item_name ?? 'Scope item'}
+                </p>
+              </div>
+              <div className="resource-sheet-readout">
+                <span>{bucketLabel} total</span>
+                <strong>{formatCurrency(bucketTotal)}</strong>
+              </div>
+            </div>
+
+            {type === 'materials' ? (
+              <div className="resource-sheet-form">
+                <div className="resource-sheet-form-grid">
+                  <label className="resource-sheet-field">
+                    <span>Quantity</span>
+                    <input
+                      aria-label={(item.item_name ?? 'Scope item') + ' quantity'}
+                      min="0"
+                      onBlur={() => onUpdateDraft({}, true)}
+                      onChange={(event) => onUpdateDraft({ quantity: event.target.value })}
+                      step="0.1"
+                      type="number"
+                      value={draft.quantity}
+                    />
+                  </label>
+                  <label className="resource-sheet-field">
+                    <span>Unit of measure</span>
+                    <select
+                      className="item-detail-select"
+                      onChange={(event) => onUnitChange(event.target.value)}
+                      value={draft.unit}
+                    >
+                      {unitOptions.map((unitOption) => (
+                        <option key={unitOption} value={unitOption}>
+                          {unitOption}
+                        </option>
+                      ))}
+                      <option value="__add__">+ Add UoM</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="resource-sheet-form-grid">
+                  <label className="resource-sheet-field">
+                    <span>Cost / unit</span>
+                    <input
+                      aria-label={(item.item_name ?? 'Scope item') + ' material cost per unit'}
+                      min="0"
+                      onBlur={() => onUpdateDraft({}, true)}
+                      onChange={(event) => onUpdateDraft({ materialCostPerUnit: event.target.value })}
+                      step="0.01"
+                      type="number"
+                      value={draft.materialCostPerUnit}
+                    />
+                  </label>
+                  <div className="resource-sheet-readout resource-sheet-readout-soft">
+                    <span>Extended material</span>
+                    <strong>{formatCurrency(derived.materialCost)}</strong>
+                    <small>
+                      {formatNumber(derived.quantity)} {draft.unit}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {type === 'labor' ? (
+              <div className="resource-sheet-form resource-sheet-form-grid">
+                <label className="resource-sheet-field">
+                  <span>Hours</span>
+                  <input
+                    aria-label={(item.item_name ?? 'Scope item') + ' labor hours'}
+                    min="0"
+                    onBlur={() => onUpdateDraft({}, true)}
+                    onChange={(event) => onUpdateDraft({ laborHours: event.target.value })}
+                    step="0.1"
+                    type="number"
+                    value={draft.laborHours}
+                  />
+                </label>
+                <label className="resource-sheet-field">
+                  <span>Rate / hour</span>
+                  <input
+                    aria-label={(item.item_name ?? 'Scope item') + ' labor rate'}
+                    min="0"
+                    onBlur={() => onUpdateDraft({}, true)}
+                    onChange={(event) => onUpdateDraft({ laborRate: event.target.value })}
+                    step="0.01"
+                    type="number"
+                    value={draft.laborRate}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {type === 'equipment' ? (
+              <div className="resource-sheet-form resource-sheet-form-grid">
+                <label className="resource-sheet-field">
+                  <span>Days</span>
+                  <input
+                    aria-label={(item.item_name ?? 'Scope item') + ' equipment days'}
+                    min="0"
+                    onBlur={() => onUpdateDraft({}, true)}
+                    onChange={(event) => onUpdateDraft({ equipmentDays: event.target.value })}
+                    step="0.1"
+                    type="number"
+                    value={draft.equipmentDays}
+                  />
+                </label>
+                <label className="resource-sheet-field">
+                  <span>Cost / day</span>
+                  <input
+                    aria-label={(item.item_name ?? 'Scope item') + ' equipment rate'}
+                    min="0"
+                    onBlur={() => onUpdateDraft({}, true)}
+                    onChange={(event) => onUpdateDraft({ equipmentRate: event.target.value })}
+                    step="0.01"
+                    type="number"
+                    value={draft.equipmentRate}
+                  />
+                </label>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="resource-sheet-library">
+            <div className="resource-sheet-library-header">
+              <div>
+                <h3>Company prefills</h3>
+                <p>Search by name, role, or unit and apply a rate instantly.</p>
+              </div>
+            </div>
+
+            <label className="resource-sheet-search">
+              <span>Search</span>
+              <input
+                onChange={(event) => setSearchValue(event.target.value)}
+                placeholder={'Search ' + bucketLabel.toLowerCase() + ' prefills'}
+                type="search"
+                value={searchValue}
+              />
+            </label>
+
+            {type === 'labor' ? (
+              <div className="resource-sheet-list">
+                {filteredEmployees.length === 0 ? (
+                  <div className="resource-sheet-empty">No labor prefills match yet.</div>
+                ) : (
+                  filteredEmployees.map((employee) => (
+                    <button
+                      className="resource-sheet-option"
+                      key={employee.id}
+                      onClick={() => {
+                        onUpdateDraft({ laborRate: String(employee.hourly_rate) }, true)
+                        onClose()
+                      }}
+                      type="button"
+                    >
+                      <div className="resource-sheet-option-copy">
+                        <strong>{employee.name}</strong>
+                        <span>{employee.role || 'Labor prefill'}</span>
+                      </div>
+                      <div className="resource-sheet-option-value">
+                        <strong>{formatCurrency(employee.hourly_rate)}</strong>
+                        <span>/ hr · Apply</span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : null}
+
+            {type === 'equipment' ? (
+              <div className="resource-sheet-list">
+                {filteredEquipment.length === 0 ? (
+                  <div className="resource-sheet-empty">No equipment prefills match yet.</div>
+                ) : (
+                  filteredEquipment.map((equipmentItem) => (
+                    <button
+                      className="resource-sheet-option"
+                      key={equipmentItem.id}
+                      onClick={() => {
+                        onUpdateDraft({ equipmentRate: String(equipmentItem.daily_rate) }, true)
+                        onClose()
+                      }}
+                      type="button"
+                    >
+                      <div className="resource-sheet-option-copy">
+                        <strong>{equipmentItem.name}</strong>
+                        <span>Equipment prefill</span>
+                      </div>
+                      <div className="resource-sheet-option-value">
+                        <strong>{formatCurrency(equipmentItem.daily_rate)}</strong>
+                        <span>/ day · Apply</span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : null}
+
+            {type === 'materials' ? (
+              <div className="resource-sheet-list">
+                {filteredMaterials.length === 0 ? (
+                  <div className="resource-sheet-empty">No material prefills match yet.</div>
+                ) : (
+                  filteredMaterials.map((material) => (
+                    <button
+                      className="resource-sheet-option"
+                      key={material.id}
+                      onClick={() => {
+                        onUpdateDraft(
+                          {
+                            materialCostPerUnit: String(material.cost_per_unit),
+                            unit: material.unit.toUpperCase(),
+                          },
+                          true,
+                        )
+                        onClose()
+                      }}
+                      type="button"
+                    >
+                      <div className="resource-sheet-option-copy">
+                        <strong>{material.name}</strong>
+                        <span>{material.unit}</span>
+                      </div>
+                      <div className="resource-sheet-option-value">
+                        <strong>{formatCurrency(material.cost_per_unit)}</strong>
+                        <span>/ unit · Apply</span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </section>
+        </div>
+      ) : (
+        <section className="resource-sheet-editor resource-sheet-editor-standalone">
           <div className="resource-sheet-editor-header">
             <div>
               <h3>Current values</h3>
@@ -215,237 +511,68 @@ const ResourcePickerPanel = ({
               </p>
             </div>
             <div className="resource-sheet-readout">
-              <span>{getBucketLabel(type)} total</span>
-              <strong>
-                {formatCurrency(
-                  type === 'labor'
-                    ? derived.laborCost
-                    : type === 'equipment'
-                      ? derived.equipmentCost
-                      : derived.materialCost,
-                )}
-              </strong>
+              <span>{bucketLabel} total</span>
+              <strong>{formatCurrency(bucketTotal)}</strong>
             </div>
           </div>
 
-          {type === 'materials' ? (
+          {type === 'subcontract' ? (
             <div className="resource-sheet-form">
-              <div className="resource-sheet-form-grid">
-                <label className="resource-sheet-field">
-                  <span>Quantity</span>
-                  <input disabled type="text" value={formatNumber(derived.quantity)} />
-                </label>
-                <label className="resource-sheet-field">
-                  <span>Unit of measure</span>
-                  <select
-                    className="item-detail-select"
-                    onChange={(event) => onUnitChange(event.target.value)}
-                    value={draft.unit}
-                  >
-                    {unitOptions.map((unitOption) => (
-                      <option key={unitOption} value={unitOption}>
-                        {unitOption}
-                      </option>
-                    ))}
-                    <option value="__add__">+ Add UoM</option>
-                  </select>
-                </label>
-              </div>
-              <div className="resource-sheet-form-grid">
-                <label className="resource-sheet-field">
-                  <span>Cost / unit</span>
-                  <input
-                    aria-label={(item.item_name ?? 'Scope item') + ' material cost per unit'}
-                    min="0"
-                    onBlur={() => onUpdateDraft({}, true)}
-                    onChange={(event) => onUpdateDraft({ materialCostPerUnit: event.target.value })}
-                    step="0.01"
-                    type="number"
-                    value={draft.materialCostPerUnit}
-                  />
-                </label>
-                <div className="resource-sheet-readout resource-sheet-readout-soft">
-                  <span>Extended material</span>
-                  <strong>{formatCurrency(derived.materialCost)}</strong>
-                  <small>
-                    {formatNumber(derived.quantity)} {draft.unit}
-                  </small>
-                </div>
+              <label className="resource-sheet-field">
+                <span>Subcontract cost</span>
+                <input
+                  aria-label={(item.item_name ?? 'Scope item') + ' subcontract cost'}
+                  min="0"
+                  onBlur={() => onUpdateDraft({}, true)}
+                  onChange={(event) => onUpdateDraft({ subcontractCost: event.target.value })}
+                  step="0.01"
+                  type="number"
+                  value={draft.subcontractCost}
+                />
+              </label>
+              <div className="resource-sheet-readout resource-sheet-readout-soft">
+                <span>Current allowance</span>
+                <strong>{formatCurrency(derived.subcontractCost)}</strong>
+                <small>Flat subcontract cost for this scope</small>
               </div>
             </div>
           ) : null}
 
-          {type === 'labor' ? (
+          {type === 'markup' ? (
             <div className="resource-sheet-form resource-sheet-form-grid">
               <label className="resource-sheet-field">
-                <span>Hours</span>
+                <span>O/H %</span>
                 <input
-                  aria-label={(item.item_name ?? 'Scope item') + ' labor hours'}
+                  aria-label={(item.item_name ?? 'Scope item') + ' overhead percent'}
                   min="0"
                   onBlur={() => onUpdateDraft({}, true)}
-                  onChange={(event) => onUpdateDraft({ laborHours: event.target.value })}
-                  step="0.1"
+                  onChange={(event) => onUpdateDraft({ overheadPercent: event.target.value })}
+                  step="1"
                   type="number"
-                  value={draft.laborHours}
+                  value={draft.overheadPercent}
                 />
               </label>
               <label className="resource-sheet-field">
-                <span>Rate / hour</span>
+                <span>Profit %</span>
                 <input
-                  aria-label={(item.item_name ?? 'Scope item') + ' labor rate'}
+                  aria-label={(item.item_name ?? 'Scope item') + ' profit percent'}
                   min="0"
                   onBlur={() => onUpdateDraft({}, true)}
-                  onChange={(event) => onUpdateDraft({ laborRate: event.target.value })}
-                  step="0.01"
+                  onChange={(event) => onUpdateDraft({ profitPercent: event.target.value })}
+                  step="1"
                   type="number"
-                  value={draft.laborRate}
+                  value={draft.profitPercent}
                 />
               </label>
-            </div>
-          ) : null}
-
-          {type === 'equipment' ? (
-            <div className="resource-sheet-form resource-sheet-form-grid">
-              <label className="resource-sheet-field">
-                <span>Days</span>
-                <input
-                  aria-label={(item.item_name ?? 'Scope item') + ' equipment days'}
-                  min="0"
-                  onBlur={() => onUpdateDraft({}, true)}
-                  onChange={(event) => onUpdateDraft({ equipmentDays: event.target.value })}
-                  step="0.1"
-                  type="number"
-                  value={draft.equipmentDays}
-                />
-              </label>
-              <label className="resource-sheet-field">
-                <span>Cost / day</span>
-                <input
-                  aria-label={(item.item_name ?? 'Scope item') + ' equipment rate'}
-                  min="0"
-                  onBlur={() => onUpdateDraft({}, true)}
-                  onChange={(event) => onUpdateDraft({ equipmentRate: event.target.value })}
-                  step="0.01"
-                  type="number"
-                  value={draft.equipmentRate}
-                />
-              </label>
+              <div className="resource-sheet-readout resource-sheet-readout-soft">
+                <span>Markup on direct cost</span>
+                <strong>{formatCurrency(derived.overheadCost + derived.profitCost)}</strong>
+                <small>{formatCurrency(derived.directCost)} base direct cost</small>
+              </div>
             </div>
           ) : null}
         </section>
-
-        <section className="resource-sheet-library">
-          <div className="resource-sheet-library-header">
-            <div>
-              <h3>Company prefills</h3>
-              <p>Search by name, role, or unit and apply a rate instantly.</p>
-            </div>
-          </div>
-
-          <label className="resource-sheet-search">
-            <span>Search</span>
-            <input
-              onChange={(event) => setSearchValue(event.target.value)}
-              placeholder={'Search ' + getBucketLabel(type).toLowerCase() + ' prefills'}
-              type="search"
-              value={searchValue}
-            />
-          </label>
-
-          {type === 'labor' ? (
-            <div className="resource-sheet-list">
-              {filteredEmployees.length === 0 ? (
-                <div className="resource-sheet-empty">No labor prefills match yet.</div>
-              ) : (
-                filteredEmployees.map((employee) => (
-                  <button
-                    className="resource-sheet-option"
-                    key={employee.id}
-                    onClick={() => {
-                      onUpdateDraft({ laborRate: String(employee.hourly_rate) }, true)
-                      onClose()
-                    }}
-                    type="button"
-                  >
-                    <div className="resource-sheet-option-copy">
-                      <strong>{employee.name}</strong>
-                      <span>{employee.role || 'Labor prefill'}</span>
-                    </div>
-                    <div className="resource-sheet-option-value">
-                      <strong>{formatCurrency(employee.hourly_rate)}</strong>
-                      <span>/ hr · Apply</span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          ) : null}
-
-          {type === 'equipment' ? (
-            <div className="resource-sheet-list">
-              {filteredEquipment.length === 0 ? (
-                <div className="resource-sheet-empty">No equipment prefills match yet.</div>
-              ) : (
-                filteredEquipment.map((equipmentItem) => (
-                  <button
-                    className="resource-sheet-option"
-                    key={equipmentItem.id}
-                    onClick={() => {
-                      onUpdateDraft({ equipmentRate: String(equipmentItem.daily_rate) }, true)
-                      onClose()
-                    }}
-                    type="button"
-                  >
-                    <div className="resource-sheet-option-copy">
-                      <strong>{equipmentItem.name}</strong>
-                      <span>Equipment prefill</span>
-                    </div>
-                    <div className="resource-sheet-option-value">
-                      <strong>{formatCurrency(equipmentItem.daily_rate)}</strong>
-                      <span>/ day · Apply</span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          ) : null}
-
-          {type === 'materials' ? (
-            <div className="resource-sheet-list">
-              {filteredMaterials.length === 0 ? (
-                <div className="resource-sheet-empty">No material prefills match yet.</div>
-              ) : (
-                filteredMaterials.map((material) => (
-                  <button
-                    className="resource-sheet-option"
-                    key={material.id}
-                    onClick={() => {
-                      onUpdateDraft(
-                        {
-                          materialCostPerUnit: String(material.cost_per_unit),
-                          unit: material.unit.toUpperCase(),
-                        },
-                        true,
-                      )
-                      onClose()
-                    }}
-                    type="button"
-                  >
-                    <div className="resource-sheet-option-copy">
-                      <strong>{material.name}</strong>
-                      <span>{material.unit}</span>
-                    </div>
-                    <div className="resource-sheet-option-value">
-                      <strong>{formatCurrency(material.cost_per_unit)}</strong>
-                      <span>/ unit · Apply</span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          ) : null}
-        </section>
-      </div>
+      )}
     </FloatingPanel>
   )
 }
@@ -630,51 +757,38 @@ export const ProjectEstimateBuilder = ({
   const activeItem = openPicker ? itemsByKey.get(openPicker.itemId) ?? null : null
   const activeDraft = openPicker ? drafts[openPicker.itemId] ?? null : null
 
+  const renderBucketButton = (
+    bucket: BucketKey,
+    key: string,
+    draft: EstimateBuilderDraft,
+    derived: EstimateBuilderDerived,
+    showLabel = false,
+  ) => (
+    <BucketControlButton
+      amount={formatCurrency(getEstimateBucketTotal(bucket, derived))}
+      ariaLabel={`${draft.itemName || 'Scope item'} ${getBucketLabel(bucket)}`}
+      className={showLabel ? undefined : 'bucket-control-button-compact'}
+      detail={getEstimateBucketDetail(bucket, derived)}
+      disabled={readOnly}
+      label={showLabel ? getBucketLabel(bucket) : undefined}
+      onClick={() => setOpenPicker({ bucket, itemId: key })}
+      summary={getEstimateBucketSummary(bucket, draft, derived)}
+    />
+  )
+
   const renderBucketGrid = (
     key: string,
     draft: EstimateBuilderDraft,
     derived: EstimateBuilderDerived,
+    showLabels = true,
   ) => (
     <div className="project-builder-bucket-grid">
-      <BucketButton
-        amount={formatCurrency(derived.materialCost)}
-        disabled={readOnly}
-        label="Materials"
-        onClick={() => setOpenPicker({ bucket: 'materials', itemId: key })}
-        summary={draft.unit + ' · ' + formatCurrency(derived.materialCostPerUnit) + ' / unit'}
-      />
-      <BucketButton
-        amount={formatCurrency(derived.laborCost)}
-        disabled={readOnly}
-        label="Labor"
-        onClick={() => setOpenPicker({ bucket: 'labor', itemId: key })}
-        summary={formatNumber(derived.laborHours) + ' hrs · ' + formatCurrency(derived.laborRate) + ' / hr'}
-      />
-      <BucketButton
-        amount={formatCurrency(derived.equipmentCost)}
-        disabled={readOnly}
-        label="Equipment"
-        onClick={() => setOpenPicker({ bucket: 'equipment', itemId: key })}
-        summary={formatNumber(derived.equipmentDays) + ' days · ' + formatCurrency(derived.equipmentRate) + ' / day'}
-      />
+      {renderBucketButton('materials', key, draft, derived, showLabels)}
+      {renderBucketButton('labor', key, draft, derived, showLabels)}
+      {renderBucketButton('equipment', key, draft, derived, showLabels)}
+      {renderBucketButton('subcontract', key, draft, derived, showLabels)}
+      {renderBucketButton('markup', key, draft, derived, showLabels)}
     </div>
-  )
-
-  const renderBucketTrigger = (
-    bucket: BucketKey,
-    key: string,
-    total: number,
-  ) => (
-    <button
-      aria-label={getBucketLabel(bucket)}
-      className="ghost-button project-builder-table-trigger"
-      disabled={readOnly}
-      onClick={() => setOpenPicker({ bucket, itemId: key })}
-      type="button"
-    >
-      <span>{getBucketLabel(bucket)}</span>
-      <strong>{formatCurrency(total)}</strong>
-    </button>
   )
 
   return (
@@ -709,7 +823,7 @@ export const ProjectEstimateBuilder = ({
                   const key = getItemKey(item)
                   const draft = drafts[key]
                   const derived = derivedByKey[key]
-                  const unitOptions = buildUnitOptions(draft.unit, customUnits)
+                  const itemRoute = '/projects/' + projectId + '/items/' + key
 
                   return (
                     <tr className={draft.isIncluded ? '' : 'estimate-row-muted'} key={key}>
@@ -723,27 +837,11 @@ export const ProjectEstimateBuilder = ({
                                 onChange={(event) => {
                                   updateDraft(key, { isIncluded: event.target.checked }, true)
                                 }}
-                                type="checkbox"
-                              />
-                            ) : null}
-                            <span className="scope-code-pill mono">{item.item_code}</span>
-                            {readOnly ? (
-                              <span className="scope-unit-pill">{draft.unit}</span>
-                            ) : (
-                              <select
-                                className="item-detail-select project-builder-scope-unit-select"
-                                onChange={(event) => handleUnitChange(key, event.target.value)}
-                                value={draft.unit}
-                              >
-                                {unitOptions.map((unitOption) => (
-                                  <option key={unitOption} value={unitOption}>
-                                    {unitOption}
-                                  </option>
-                                ))}
-                                <option value="__add__">+ Add UoM</option>
-                              </select>
-                            )}
-                          </div>
+                                  type="checkbox"
+                                />
+                              ) : null}
+                              <span className="scope-code-pill mono">{item.item_code}</span>
+                            </div>
                           {readOnly ? (
                             <strong>{draft.itemName}</strong>
                           ) : (
@@ -756,182 +854,22 @@ export const ProjectEstimateBuilder = ({
                               value={draft.itemName}
                             />
                           )}
-                          <div className="project-builder-scope-footer">
-                            <span className="scope-meta-line">
-                              {item.section_code ?? '—'} · {item.section_name ?? 'Unassigned scope'}
-                            </span>
-                            <Link className="project-builder-inline-link" to={'/projects/' + projectId + '/items/' + key}>
-                              Advanced editor
-                            </Link>
-                          </div>
                         </div>
                       </td>
                       <td className="estimate-column-bucket">
-                        <div className="estimate-bucket">
-                          <label className="estimate-bucket-field">
-                            <span>Hours</span>
-                            {readOnly ? (
-                              <strong>{formatNumber(derived.laborHours)}</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' labor hours'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { laborHours: event.target.value })}
-                                step="0.1"
-                                type="number"
-                                value={draft.laborHours}
-                              />
-                            )}
-                          </label>
-                          <label className="estimate-bucket-field">
-                            <span>Rate / hr</span>
-                            {readOnly ? (
-                              <strong>{formatCurrency(derived.laborRate)}</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' labor rate'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { laborRate: event.target.value })}
-                                step="0.01"
-                                type="number"
-                                value={draft.laborRate}
-                              />
-                            )}
-                          </label>
-                          {renderBucketTrigger('labor', key, derived.laborCost)}
-                        </div>
+                        {renderBucketButton('labor', key, draft, derived)}
                       </td>
                       <td className="estimate-column-bucket">
-                        <div className="estimate-bucket">
-                          <label className="estimate-bucket-field">
-                            <span>Qty</span>
-                            {readOnly ? (
-                              <strong>{formatNumber(derived.quantity)}</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' quantity'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { quantity: event.target.value })}
-                                step="0.1"
-                                type="number"
-                                value={draft.quantity}
-                              />
-                            )}
-                          </label>
-                          <label className="estimate-bucket-field">
-                            <span>Cost / unit</span>
-                            {readOnly ? (
-                              <strong>{formatCurrency(derived.materialCostPerUnit)}</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' material cost per unit'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { materialCostPerUnit: event.target.value })}
-                                step="0.01"
-                                type="number"
-                                value={draft.materialCostPerUnit}
-                              />
-                            )}
-                          </label>
-                          {renderBucketTrigger('materials', key, derived.materialCost)}
-                        </div>
+                        {renderBucketButton('materials', key, draft, derived)}
                       </td>
                       <td className="estimate-column-bucket">
-                        <div className="estimate-bucket">
-                          <label className="estimate-bucket-field">
-                            <span>Days</span>
-                            {readOnly ? (
-                              <strong>{formatNumber(derived.equipmentDays)}</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' equipment days'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { equipmentDays: event.target.value })}
-                                step="0.1"
-                                type="number"
-                                value={draft.equipmentDays}
-                              />
-                            )}
-                          </label>
-                          <label className="estimate-bucket-field">
-                            <span>Cost / day</span>
-                            {readOnly ? (
-                              <strong>{formatCurrency(derived.equipmentRate)}</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' equipment rate'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { equipmentRate: event.target.value })}
-                                step="0.01"
-                                type="number"
-                                value={draft.equipmentRate}
-                              />
-                            )}
-                          </label>
-                          {renderBucketTrigger('equipment', key, derived.equipmentCost)}
-                        </div>
+                        {renderBucketButton('equipment', key, draft, derived)}
                       </td>
                       <td className="estimate-column-bucket">
-                        <div className="estimate-bucket estimate-bucket-single">
-                          <label className="estimate-bucket-field">
-                            <span>Cost</span>
-                            {readOnly ? (
-                              <strong>{formatCurrency(derived.subcontractCost)}</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' subcontract cost'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { subcontractCost: event.target.value })}
-                                step="0.01"
-                                type="number"
-                                value={draft.subcontractCost}
-                              />
-                            )}
-                          </label>
-                        </div>
+                        {renderBucketButton('subcontract', key, draft, derived)}
                       </td>
                       <td className="estimate-column-bucket">
-                        <div className="estimate-bucket">
-                          <label className="estimate-bucket-field">
-                            <span>O/H %</span>
-                            {readOnly ? (
-                              <strong>{formatNumber(derived.overheadPercent)}%</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' overhead percent'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { overheadPercent: event.target.value })}
-                                step="1"
-                                type="number"
-                                value={draft.overheadPercent}
-                              />
-                            )}
-                          </label>
-                          <label className="estimate-bucket-field">
-                            <span>Profit %</span>
-                            {readOnly ? (
-                              <strong>{formatNumber(derived.profitPercent)}%</strong>
-                            ) : (
-                              <input
-                                aria-label={(item.item_name ?? 'Scope item') + ' profit percent'}
-                                min="0"
-                                onBlur={() => flushAutoSave(key, draft)}
-                                onChange={(event) => updateDraft(key, { profitPercent: event.target.value })}
-                                step="1"
-                                type="number"
-                                value={draft.profitPercent}
-                              />
-                            )}
-                          </label>
-                        </div>
+                        {renderBucketButton('markup', key, draft, derived)}
                       </td>
                       <td className="estimate-column-total estimate-total-cell">
                         <div className="estimate-total-stack">
@@ -939,6 +877,9 @@ export const ProjectEstimateBuilder = ({
                           <span className={'row-save-state row-save-' + (rowSaveState[key] ?? 'saved')}>
                             {getSaveLabel(key)}
                           </span>
+                          <Link className="row-advanced-link" to={itemRoute}>
+                            Advanced editor
+                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -971,7 +912,7 @@ export const ProjectEstimateBuilder = ({
               const key = getItemKey(item)
               const draft = drafts[key]
               const derived = derivedByKey[key]
-              const unitOptions = buildUnitOptions(draft.unit, customUnits)
+              const itemRoute = '/projects/' + projectId + '/items/' + key
 
               return (
                 <details
@@ -982,7 +923,6 @@ export const ProjectEstimateBuilder = ({
                     <div className="worksheet-mobile-card-summary-main">
                       <div className="worksheet-mobile-card-tags">
                         <span className="scope-code-pill mono">{item.item_code}</span>
-                        <span className="scope-unit-pill">{draft.unit}</span>
                         {!draft.isIncluded ? (
                           <span className="worksheet-mobile-flag">Excluded</span>
                         ) : null}
@@ -1033,89 +973,11 @@ export const ProjectEstimateBuilder = ({
                       </label>
                     ) : null}
 
-                    <div className="project-builder-fields-grid project-builder-fields-grid-mobile">
-                      <label className="project-builder-field">
-                        <span>Quantity</span>
-                        <input
-                          aria-label={(item.item_name ?? 'Scope item') + ' quantity'}
-                          disabled={readOnly}
-                          min="0"
-                          onBlur={() => flushAutoSave(key, draft)}
-                          onChange={(event) => updateDraft(key, { quantity: event.target.value })}
-                          step="0.1"
-                          type="number"
-                          value={draft.quantity}
-                        />
-                      </label>
-                      <label className="project-builder-field">
-                        <span>Unit</span>
-                        <select
-                          className="item-detail-select"
-                          disabled={readOnly}
-                          onChange={(event) => handleUnitChange(key, event.target.value)}
-                          value={draft.unit}
-                        >
-                          {unitOptions.map((unitOption) => (
-                            <option key={unitOption} value={unitOption}>
-                              {unitOption}
-                            </option>
-                          ))}
-                          <option value="__add__">+ Add UoM</option>
-                        </select>
-                      </label>
-                      <label className="project-builder-field">
-                        <span>Subcontractor</span>
-                        <input
-                          aria-label={(item.item_name ?? 'Scope item') + ' subcontract cost'}
-                          disabled={readOnly}
-                          min="0"
-                          onBlur={() => flushAutoSave(key, draft)}
-                          onChange={(event) => updateDraft(key, { subcontractCost: event.target.value })}
-                          step="0.01"
-                          type="number"
-                          value={draft.subcontractCost}
-                        />
-                      </label>
-                      <label className="project-builder-field">
-                        <span>O/H %</span>
-                        <input
-                          aria-label={(item.item_name ?? 'Scope item') + ' overhead percent'}
-                          disabled={readOnly}
-                          min="0"
-                          onBlur={() => flushAutoSave(key, draft)}
-                          onChange={(event) => updateDraft(key, { overheadPercent: event.target.value })}
-                          step="1"
-                          type="number"
-                          value={draft.overheadPercent}
-                        />
-                      </label>
-                      <label className="project-builder-field">
-                        <span>Profit %</span>
-                        <input
-                          aria-label={(item.item_name ?? 'Scope item') + ' profit percent'}
-                          disabled={readOnly}
-                          min="0"
-                          onBlur={() => flushAutoSave(key, draft)}
-                          onChange={(event) => updateDraft(key, { profitPercent: event.target.value })}
-                          step="1"
-                          type="number"
-                          value={draft.profitPercent}
-                        />
-                      </label>
-                      <div className="project-builder-inline-readout">
-                        <span>Direct cost</span>
-                        <strong>{formatCurrency(derived.directCost)}</strong>
-                        <small>
-                          {formatCurrency(derived.overheadCost)} O/H · {formatCurrency(derived.profitCost)} profit
-                        </small>
-                      </div>
-                    </div>
-
-                    {renderBucketGrid(key, draft, derived)}
+                    {renderBucketGrid(key, draft, derived, true)}
 
                     <Link
-                      className="ghost-button project-builder-advanced-link project-builder-advanced-link-full"
-                      to={'/projects/' + projectId + '/items/' + key}
+                      className="row-advanced-link project-builder-advanced-link-full"
+                      to={itemRoute}
                     >
                       Advanced editor
                     </Link>
