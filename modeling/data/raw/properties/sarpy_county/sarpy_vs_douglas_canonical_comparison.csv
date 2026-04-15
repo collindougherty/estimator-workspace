@@ -1,0 +1,27 @@
+canonical_column,douglas_source_column,douglas_non_null_count,douglas_non_null_rate,sarpy_source_columns,sarpy_transform,sarpy_non_null_count,sarpy_non_null_rate
+pin,pin,216640,1.0,parcelid,Direct rename of Sarpy parcel ID.,76882,1.0
+property_a,property_a,206090,0.9513016986706057,siteaddress,Parsed street-address portion before city/state/zip suffix.,71150,0.9254441871959627
+house,house,206088,0.9512924667651403,siteaddress,First street token when it looks like a house number.,71150,0.9254441871959627
+street_dir,street_dir,96546,0.4456517725258493,siteaddress,Derived from parsed street tokens when a directional is present.,25468,0.3312608933170313
+street_nam,street_nam,206090,0.9513016986706057,siteaddress,Derived from parsed street tokens.,71150,0.9254441871959627
+street_typ,street_typ,206002,0.9508954948301329,siteaddress,Derived from parsed street suffix when recognizable.,69375,0.9023568585624724
+apartment,apartment,4095,0.018902326440177253,unit,Uses Sarpy unit field when present; otherwise blank.,575,0.007478993782679951
+prop_city,prop_city,206082,0.9512647710487444,"siteaddress,pstlcity",City parsed from siteaddress with postal city fallback.,76882,1.0
+prop_zip,prop_zip,206091,0.9513063146233383,"siteaddress,pstlzip5",ZIP parsed from siteaddress with postal ZIP fallback.,76881,0.999986993054291
+land_value,land_value,216627,0.9999399926144756,lndvalue,Direct rename of Sarpy land value.,76882,1.0
+improvemen,improvemen,216627,0.9999399926144756,impvalue,Direct rename of Sarpy improvement value.,76882,1.0
+total_valu,total_valu,216627,0.9999399926144756,cntassdval,Direct rename of county assessed value.,76882,1.0
+class,class,216627,0.9999399926144756,"classdscrp,usedscrp","Derived binary cohort flag: R when description contains RESIDENTIAL, else NONR.",76882,1.0
+school_dis,school_dis,214154,0.9885247415066469,schldscrp,Uses school district description text.,76882,1.0
+numbldgs,numbldgs,216627,0.9999399926144756,,Not present in Sarpy raw source; left blank to avoid inventing building counts.,0,0.0
+bldg_numb,bldg_numb,216627,0.9999399926144756,building,Uses Sarpy building code when present.,65179,0.8477797143674722
+bldg_sf,bldg_sf,216627,0.9999399926144756,resflrarea,Direct rename of residential floor area.,76882,1.0
+bldg_story,bldg_story,216627,0.9999399926144756,resstrtyp,Numeric values retained; non-numeric structure-type codes left blank.,2757,0.03586014931973674
+bldg_yrblt,bldg_yrblt,216627,0.9999399926144756,resyrblt,Direct rename after dropping zero/blank years.,62134,0.808173564683541
+bldg_desc,bldg_desc,192218,0.8872692023633678,"usedscrp,classdscrp,prprtydscrp",Uses use/class description text; legal description retained in extra Sarpy columns.,76882,1.0
+quality,quality,192085,0.8866552806499262,,Unavailable in Sarpy raw source; left blank.,0,0.0
+condition,condition,192085,0.8866552806499262,,Unavailable in Sarpy raw source; left blank.,0,0.0
+acres,acres,216640,1.0,acreage,Direct rename of acreage.,76882,1.0
+sq_feet,sq_feet,216640,1.0,acreage,"Derived as acreage * 43,560 because Sarpy source has no lot square-foot column.",76882,1.0
+centroid_latitude,centroid_latitude,216640,1.0,centroid_latitude,Direct rename.,76882,1.0
+centroid_longitude,centroid_longitude,216640,1.0,centroid_longitude,Direct rename.,76882,1.0

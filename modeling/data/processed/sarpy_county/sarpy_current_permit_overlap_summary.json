@@ -1,0 +1,12 @@
+{
+  "permit_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/raw/roofing/residential_reroof_2025-11-01_2026-04-14.csv",
+  "permit_rows": 851,
+  "permit_rows_with_parcel_number": 849,
+  "permit_unique_parcel_numbers": 839,
+  "sarpy_unique_parcelid": 76875,
+  "sarpy_unique_lowparcelid": 0,
+  "parcelid_matches": 0,
+  "lowparcelid_matches": 0,
+  "normalized_full_address_matches": 0,
+  "normalized_full_address_match_examples": []
+}

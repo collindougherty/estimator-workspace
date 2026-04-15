@@ -1,0 +1,23 @@
+{
+  "rows": 803,
+  "train_rows": 481,
+  "calibration_rows": 161,
+  "test_rows": 161,
+  "best_model": "random-forest-log",
+  "best_model_mae": 6335.963970097422,
+  "forest_interval_meta": {
+    "q10_log_residual": -0.35193596823487816,
+    "q90_log_residual": 0.36749581633381645
+  },
+  "forest_interval_coverage_80": 0.5217391304347826,
+  "neighbor_range_coverage_80": 0.7018633540372671,
+  "neighbor_range_coverage_90": 0.8509316770186336,
+  "artifacts": {
+    "metrics_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_metrics.csv",
+    "holdout_predictions_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_holdout_predictions.csv",
+    "feature_importance_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_feature_importance.csv",
+    "ridge_coefficients_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_ridge_coefficients.csv",
+    "error_by_zip_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_error_by_zip.csv",
+    "nearest_comps_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_nearest_comps.csv"
+  }
+}

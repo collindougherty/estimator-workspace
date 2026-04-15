@@ -8,7 +8,9 @@ import { ProjectEstimateBuilder } from '../components/ProjectEstimateBuilder'
 import { StatusBadge } from '../components/StatusBadge'
 import { TrackingTable } from '../components/TrackingTable'
 import {
+  createProjectScope,
   createOrganizationEmployeeLibraryItem,
+  deleteProjectScope,
   createOrganizationEquipmentLibraryItem,
   createOrganizationMaterialLibraryItem,
   deleteOrganizationEmployeeLibraryItem,
@@ -26,6 +28,7 @@ import {
 import { formatCurrency, formatDate } from '../lib/formatters'
 import { exportProposalPdf } from '../lib/proposal-pdf'
 import { applyEstimatePatchToProjectItemMetric } from '../lib/project-estimate-builder'
+import { getNextItemCode, getNextSectionCode, sortScopeItems } from '../lib/scope-hierarchy'
 import type {
   OrganizationEmployeeLibraryItem,
   OrganizationEquipmentLibraryItem,
@@ -62,6 +65,8 @@ export const ProjectPage = () => {
   const [organizationName, setOrganizationName] = useState('')
   const [isCompanyLibraryOpen, setIsCompanyLibraryOpen] = useState(false)
   const [isLibrarySaving, setIsLibrarySaving] = useState(false)
+  const [isScopeMutating, setIsScopeMutating] = useState(false)
+  const [scopeDeleteTarget, setScopeDeleteTarget] = useState<ProjectItemMetric | null>(null)
   const [screenError, setScreenError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -103,7 +108,7 @@ export const ProjectPage = () => {
       }
 
       setProject(nextProject)
-      setItems(nextItems)
+      setItems(sortScopeItems(nextItems))
       setOrganizationName(
         organizations.find((organization) => organization.id === nextProject?.organization_id)
           ?.name ??
@@ -201,14 +206,17 @@ export const ProjectPage = () => {
     return project.organization_id
   }
 
-  const runCompanyLibraryMutation = async (mutation: (organizationId: string) => Promise<void>) => {
+  const runCompanyLibraryMutation = async <T,>(
+    mutation: (organizationId: string) => Promise<T>,
+  ): Promise<T> => {
     setIsLibrarySaving(true)
     setScreenError(null)
 
     try {
       const organizationId = getProjectOrganizationId()
-      await mutation(organizationId)
+      const result = await mutation(organizationId)
       await loadCompanyLibraries(organizationId)
+      return result
     } catch (caughtError) {
       const message =
         caughtError instanceof Error ? caughtError.message : 'Unable to update company library'
@@ -224,8 +232,8 @@ export const ProjectPage = () => {
     name: string
     role: string
   }) => {
-    await runCompanyLibraryMutation(async (organizationId) => {
-      await createOrganizationEmployeeLibraryItem({
+    return runCompanyLibraryMutation(async (organizationId) => {
+      return createOrganizationEmployeeLibraryItem({
         organization_id: organizationId,
         name: draft.name,
         role: draft.role || null,
@@ -241,8 +249,8 @@ export const ProjectPage = () => {
   }
 
   const handleCreateEquipmentLibraryItem = async (draft: { dailyRate: number; name: string }) => {
-    await runCompanyLibraryMutation(async (organizationId) => {
-      await createOrganizationEquipmentLibraryItem({
+    return runCompanyLibraryMutation(async (organizationId) => {
+      return createOrganizationEquipmentLibraryItem({
         organization_id: organizationId,
         name: draft.name,
         daily_rate: draft.dailyRate,
@@ -261,8 +269,8 @@ export const ProjectPage = () => {
     name: string
     unit: string
   }) => {
-    await runCompanyLibraryMutation(async (organizationId) => {
-      await createOrganizationMaterialLibraryItem({
+    return runCompanyLibraryMutation(async (organizationId) => {
+      return createOrganizationMaterialLibraryItem({
         organization_id: organizationId,
         name: draft.name,
         unit: draft.unit,
@@ -286,10 +294,12 @@ export const ProjectPage = () => {
     try {
       await updateProjectEstimateItem(itemId, patch)
       setItems((current) =>
-        current.map((item) =>
-          item.project_estimate_item_id === itemId
-            ? applyEstimatePatchToProjectItemMetric(item, patch)
-            : item,
+        sortScopeItems(
+          current.map((item) =>
+            item.project_estimate_item_id === itemId
+              ? applyEstimatePatchToProjectItemMetric(item, patch)
+              : item,
+          ),
         ),
       )
     } catch (caughtError) {
@@ -314,6 +324,80 @@ export const ProjectPage = () => {
         caughtError instanceof Error ? caughtError.message : 'Unable to save tracking item'
       setScreenError(message)
       throw caughtError
+    }
+  }
+
+  const handleCreateScope = async (draft: {
+    itemName: string
+    sectionCode?: string
+    sectionName: string
+    unit: string
+  }) => {
+    if (!projectId) {
+      return
+    }
+
+    setIsScopeMutating(true)
+    setScreenError(null)
+
+    try {
+      const normalizedItems = sortScopeItems(items)
+      const sectionCode = draft.sectionCode?.trim() || getNextSectionCode(normalizedItems)
+      const sectionName = draft.sectionName.trim()
+      const itemCode = getNextItemCode(normalizedItems, sectionCode)
+      const seedItem =
+        normalizedItems.find((item) => item.section_code?.trim() === sectionCode) ??
+        normalizedItems[normalizedItems.length - 1]
+
+      await createProjectScope({
+        projectId,
+        itemCode,
+        itemName: draft.itemName.trim(),
+        overheadPercent: seedItem?.overhead_percent ?? 0,
+        profitPercent: seedItem?.profit_percent ?? 0,
+        sectionCode,
+        sectionName,
+        unit: draft.unit.trim().toUpperCase() || seedItem?.unit?.trim().toUpperCase() || 'EA',
+      })
+
+      await loadProject({ silent: true })
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error ? caughtError.message : 'Unable to create scope'
+      setScreenError(message)
+      throw caughtError
+    } finally {
+      setIsScopeMutating(false)
+    }
+  }
+
+  const handleDeleteScope = async (item: ProjectItemMetric) => {
+    setScopeDeleteTarget(item)
+  }
+
+  const confirmDeleteScope = async () => {
+    const targetItem = scopeDeleteTarget
+    const itemId = targetItem?.project_estimate_item_id
+
+    if (!itemId) {
+      setScopeDeleteTarget(null)
+      setScreenError('Scope is missing its estimate row id')
+      return
+    }
+
+    setIsScopeMutating(true)
+    setScreenError(null)
+
+    try {
+      await deleteProjectScope(itemId)
+      setScopeDeleteTarget(null)
+      await loadProject({ silent: true })
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error ? caughtError.message : 'Unable to delete scope'
+      setScreenError(message)
+    } finally {
+      setIsScopeMutating(false)
     }
   }
 
@@ -394,6 +478,50 @@ export const ProjectPage = () => {
         )}
       </section>
 
+      {scopeDeleteTarget ? (
+        <FloatingPanel
+          onClose={() => {
+            if (!isScopeMutating) {
+              setScopeDeleteTarget(null)
+            }
+          }}
+          size="compact"
+          subtitle="This removes the scope row and any tracked actuals tied to it."
+          title="Delete scope?"
+        >
+          <div className="scope-delete-dialog">
+            <div className="scope-delete-summary">
+              <strong>{scopeDeleteTarget.item_name ?? 'Scope item'}</strong>
+              <span>
+                {(scopeDeleteTarget.item_code ?? 'Scope') +
+                  ' · ' +
+                  (scopeDeleteTarget.section_name ?? 'Unassigned section')}
+              </span>
+            </div>
+            <div className="scope-delete-actions">
+              <button
+                className="secondary-button"
+                disabled={isScopeMutating}
+                onClick={() => setScopeDeleteTarget(null)}
+                type="button"
+              >
+                Keep scope
+              </button>
+              <button
+                className="secondary-button secondary-button-danger"
+                disabled={isScopeMutating}
+                onClick={() => {
+                  void confirmDeleteScope()
+                }}
+                type="button"
+              >
+                {isScopeMutating ? 'Deleting…' : 'Delete scope'}
+              </button>
+            </div>
+          </div>
+        </FloatingPanel>
+      ) : null}
+
       {project?.organization_id && isCompanyLibraryOpen ? (
         <FloatingPanel
           onClose={() => setIsCompanyLibraryOpen(false)}
@@ -431,17 +559,19 @@ export const ProjectPage = () => {
 
           {isLoading ? (
             <div className="panel-empty">Loading bid builder…</div>
-          ) : terminalItems.length === 0 ? (
-            <div className="panel-empty">No terminal items yet.</div>
           ) : (
             <ProjectEstimateBuilder
               employeeLibrary={employeeLibrary}
               equipmentLibrary={equipmentLibrary}
+              isScopeMutating={isScopeMutating}
               items={terminalItems}
               materialLibrary={materialLibrary}
-              onManageLibrary={() => setIsCompanyLibraryOpen(true)}
+              onCreateEmployeeLibraryItem={handleCreateEmployeeLibraryItem}
+              onCreateEquipmentLibraryItem={handleCreateEquipmentLibraryItem}
+              onCreateMaterialLibraryItem={handleCreateMaterialLibraryItem}
+              onCreateScope={handleCreateScope}
+              onDeleteScope={handleDeleteScope}
               onSaveRow={handleSaveEstimateRow}
-              projectId={projectId}
               readOnly={projectMode === 'closed-estimate'}
             />
           )}
@@ -452,7 +582,7 @@ export const ProjectPage = () => {
             <div>
               <h2>Terminal items</h2>
               <p className="panel-meta">
-                Track active and completed jobs in the same table rhythm as the bid builder, with each scope still linking into the full item editor.
+                Track active and completed jobs in the same table rhythm as the bid builder, with each scope editable from the same bucket controls.
               </p>
             </div>
             <span className="section-count">{isLoading ? '—' : terminalItems.length}</span>
@@ -464,10 +594,15 @@ export const ProjectPage = () => {
             <div className="panel-empty">No terminal items yet.</div>
           ) : (
             <TrackingTable
+              employeeLibrary={employeeLibrary}
+              equipmentLibrary={equipmentLibrary}
               isSaving={null}
               items={terminalItems}
+              materialLibrary={materialLibrary}
+              onCreateEmployeeLibraryItem={handleCreateEmployeeLibraryItem}
+              onCreateEquipmentLibraryItem={handleCreateEquipmentLibraryItem}
+              onCreateMaterialLibraryItem={handleCreateMaterialLibraryItem}
               onSaveRow={handleSaveActualRow}
-              projectId={projectId}
               readOnly={isReadOnly}
             />
           )}

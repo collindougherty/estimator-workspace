@@ -391,6 +391,24 @@ export const createProjectScope = async (params: {
   return createdItem.id
 }
 
+export const deleteProjectScope = async (itemId: string) => {
+  const { error: deleteItemError } = await supabase.from('project_estimate_items').delete().eq('id', itemId)
+
+  if (!deleteItemError) {
+    return
+  }
+
+  const { error: deleteActualsError } = await supabase
+    .from('project_item_actuals')
+    .delete()
+    .eq('project_estimate_item_id', itemId)
+
+  throwOnError(deleteActualsError)
+
+  const { error: retryDeleteItemError } = await supabase.from('project_estimate_items').delete().eq('id', itemId)
+  throwOnError(retryDeleteItemError)
+}
+
 export const updateProjectEstimateItem = async (
   itemId: string,
   patch: ProjectEstimateItemUpdate,

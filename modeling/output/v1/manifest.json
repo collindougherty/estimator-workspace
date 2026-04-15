@@ -1,0 +1,60 @@
+{
+  "package_version": "v1",
+  "generated_at": "2026-04-15T05:19:20Z",
+  "permit_window": {
+    "stub": "residential_reroof_2025-11-01_2026-04-14_cohort",
+    "permit_key": "residential_reroof",
+    "start_date": "2025-11-01",
+    "end_date": "2026-04-14"
+  },
+  "cohort": {
+    "rows": 803,
+    "source_counties": {
+      "douglas": 803
+    },
+    "median_job_value": 10500.0
+  },
+  "validation": {
+    "best_point_model": "random-forest-log",
+    "packaged_point_model": "random-forest-log",
+    "packaged_point_model_holdout_mae": 6335.963970097422,
+    "packaged_point_model_holdout_median_ape_pct": 32.65738077579472,
+    "recommended_band_method": "nearest-neighbor empirical 5th-95th percentile band",
+    "recommended_band_holdout_coverage": 0.8509316770186336
+  },
+  "readiness": {
+    "nearest_comp_band": "v1-ready",
+    "nearest_comp_list": "v1-ready",
+    "random_forest_point_estimate": "supporting-only",
+    "company_rollup": "exploratory",
+    "sarpy_multicounty_signal": "staged-no-live-signal"
+  },
+  "sarpy_status": {
+    "staged": true,
+    "parcel_matches": 0,
+    "normalized_full_address_matches": 0,
+    "live_cohort_rows": 0,
+    "note": "Sarpy is staged but currently contributes no rows to the live permit-window cohort."
+  },
+  "recommended_first_product_surface": "Douglas-only job-level competitor band: show the nearest-comp 5th-95th percentile band, comp median, and the closest comparable permits for residential re-roof jobs.",
+  "files": {
+    "output_dir": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1",
+    "scored_cohort_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/scored_cohort.csv",
+    "nearest_comps_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/nearest_comps.csv",
+    "company_rollup_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/company_rollup.csv",
+    "output_readme": "/Users/collindougherty/MyCloud/contractor_app/modeling/output/v1/README.md"
+  },
+  "supporting_artifacts": {
+    "metrics_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_metrics.csv",
+    "holdout_predictions_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_holdout_predictions.csv",
+    "model_summary_json": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/residential_reroof_2025-11-01_2026-04-14_cohort_model_summary.json",
+    "multicounty_join_summary_json": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/multicounty/residential_reroof_2025-11-01_2026-04-14_multicounty_join_summary.json",
+    "sarpy_overlap_summary_json": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/processed/sarpy_county/sarpy_current_permit_overlap_summary.json"
+  },
+  "limitations": [
+    "Current live cohort is Douglas-only residential re-roof permits.",
+    "Permit job value is a public declared valuation, not realized invoice revenue.",
+    "Contractor/company strings are not yet normalized, so company rollups remain exploratory.",
+    "Sarpy is staged but currently contributes no rows to the live permit-window cohort."
+  ]
+}

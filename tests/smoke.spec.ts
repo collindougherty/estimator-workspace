@@ -40,7 +40,17 @@ const signInDemoUser = async (page: Page) => {
   await page.getByRole('button', { name: 'Sign in' }).click()
 }
 
-test('dashboard, tracking fallback, and two-page bid builder render cleanly', async ({ page }) => {
+const openTrackingBucket = async (page: Page, bucket: 'Equipment' | 'Labor') => {
+  await page.getByRole('button', { name: new RegExp(`Tear off and disposal ${bucket}`, 'i') }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('heading', { name: `${bucket} actuals` })).toBeVisible()
+  return dialog
+}
+
+const tearOffTrackingRow = (page: Page) =>
+  page.locator('.tracking-table tbody tr').filter({ hasText: 'Tear off and disposal' }).first()
+
+test('dashboard, tracking table, and two-page bid builder render cleanly', async ({ page }) => {
   mkdirSync('artifacts/iteration-11-builder-layout', { recursive: true })
 
   await signInDemoUser(page)
@@ -63,6 +73,30 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
     fullPage: true,
   })
 
+  const trackingRow = tearOffTrackingRow(page)
+  const equipmentActualsDialog = await openTrackingBucket(page, 'Equipment')
+  const equipmentDaysField = equipmentActualsDialog.getByLabel('Days')
+  const originalEquipmentDays = await equipmentDaysField.inputValue()
+  const updatedEquipmentDays = String(Number(originalEquipmentDays || '0') + 0.5)
+
+  await equipmentDaysField.fill(updatedEquipmentDays)
+  await page.getByRole('button', { name: 'Close' }).click()
+  await expect(trackingRow.locator('.row-save-state')).toHaveText('Synced')
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Pine Court Storm Repair' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Terminal items' })).toBeVisible()
+
+  const reloadedEquipmentDialog = await openTrackingBucket(page, 'Equipment')
+  await expect(reloadedEquipmentDialog.getByLabel('Days')).toHaveValue(updatedEquipmentDays)
+  await reloadedEquipmentDialog.getByLabel('Days').fill(originalEquipmentDays)
+  await page.getByRole('button', { name: 'Close' }).click()
+  await expect(tearOffTrackingRow(page).locator('.row-save-state')).toHaveText('Synced')
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Pine Court Storm Repair' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Terminal items' })).toBeVisible()
+
   await page.getByRole('button', { name: /Labor/i }).first().click()
   const laborActualsDialog = page.getByRole('dialog')
   await expect(laborActualsDialog.getByRole('heading', { name: 'Labor actuals' })).toBeVisible()
@@ -71,30 +105,43 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   })
   await page.getByRole('button', { name: 'Close' }).click()
 
-  await page.getByRole('link', { name: 'Advanced' }).first().click()
-  await expect(page).toHaveURL(/\/projects\/.+\/items\//)
-  await expect(page.getByRole('heading', { name: 'Quantity + material' })).toBeVisible()
-  await expect(page.getByLabel('Actual quantity')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Billing + overhead' })).toBeVisible()
-  await page.screenshot({
-    path: 'artifacts/iteration-11-builder-layout/item-tracking-detail.png',
-    fullPage: true,
+  await page.getByRole('button', { name: /O\/H \+ profit/i }).first().click()
+  const markupActualsDialog = page.getByRole('dialog')
+  await expect(markupActualsDialog.getByRole('heading', { name: 'Overhead actuals' })).toBeVisible()
+  await expect(markupActualsDialog.getByText('Tracked on the project summary, not typed here')).toBeVisible()
+  await markupActualsDialog.screenshot({
+    path: 'artifacts/iteration-11-builder-layout/tracking-markup-actuals.png',
   })
+  await page.getByRole('button', { name: 'Close' }).click()
 
-  await page.getByRole('link', { name: /Project items/i }).click()
-  await expect(page.getByRole('heading', { name: 'Terminal items' })).toBeVisible()
   await page.getByRole('link', { name: /Back/i }).click()
-
   await expect(page.getByRole('link', { name: /Maple Street Roof Replacement/i })).toBeVisible()
   await page.getByRole('link', { name: /Maple Street Roof Replacement/i }).click()
   await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Bid builder' })).toBeVisible()
   await expect(page.locator('.project-builder-table')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'New section' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Materials/i }).first()).toBeVisible()
   await page.screenshot({
     path: 'artifacts/iteration-11-builder-layout/project-bid-builder.png',
     fullPage: true,
   })
+
+  await page.getByRole('button', { name: 'New section' }).click()
+  const scopeCreator = page.locator('.scope-picker-popover').first()
+  await expect(scopeCreator.getByRole('heading', { name: 'New section' })).toBeVisible()
+  await scopeCreator.screenshot({
+    path: 'artifacts/iteration-11-builder-layout/scope-creator.png',
+  })
+  await scopeCreator.getByRole('button', { name: 'Cancel' }).click()
+  const firstScopeInput = page.locator('.project-builder-table').getByLabel('1.1.1 scope name')
+  await firstScopeInput.scrollIntoViewIfNeeded()
+  const firstScopeRow = firstScopeInput.locator('xpath=ancestor::tr[1]')
+  await firstScopeRow.getByRole('button', { name: /^Delete$/ }).click()
+  const deleteScopeDialog = page.getByRole('dialog')
+  await expect(deleteScopeDialog.getByRole('heading', { name: 'Delete scope?' })).toBeVisible()
+  await deleteScopeDialog.getByRole('button', { name: 'Keep scope' }).click()
+  await expect(deleteScopeDialog).toHaveCount(0)
 
   await page.getByRole('button', { name: /Materials/i }).first().click()
   const materialsDialog = page.getByRole('dialog')
@@ -108,23 +155,13 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await page.getByRole('button', { name: 'Company library' }).click()
   const libraryDialog = page.getByRole('dialog')
   await expect(libraryDialog.getByRole('heading', { name: 'Company library' })).toBeVisible()
+  await expect(libraryDialog.getByRole('tab', { name: /Labor/i })).toBeVisible()
+  await expect(libraryDialog.getByRole('tab', { name: /Equipment/i })).toBeVisible()
+  await expect(libraryDialog.getByRole('tab', { name: /Materials/i })).toBeVisible()
   await libraryDialog.screenshot({
     path: 'artifacts/iteration-11-builder-layout/company-library.png',
   })
   await page.getByRole('button', { name: 'Close' }).click()
-
-  await page.getByRole('link', { name: 'Advanced editor' }).first().click()
-  await expect(page).toHaveURL(/\/projects\/.+\/items\//)
-  await expect(page.getByRole('link', { name: /Bid builder/i })).toBeVisible()
-  await expect(page.getByLabel('Unit of measure')).toBeVisible()
-  await expect(page.getByLabel('Cost / unit')).toBeVisible()
-  await page.screenshot({
-    path: 'artifacts/iteration-11-builder-layout/item-estimate-advanced.png',
-    fullPage: true,
-  })
-
-  await page.getByRole('link', { name: /Bid builder/i }).click()
-  await expect(page.getByRole('heading', { name: 'Bid builder' })).toBeVisible()
 
   await page.getByRole('link', { name: /Back/i }).click()
   await expect(page.getByRole('heading', { name: 'ProfitBuilder' })).toBeVisible()
@@ -143,7 +180,7 @@ test.describe('iphone layout', () => {
     hasTouch: iPhone13.hasTouch,
   })
 
-  test('mobile bid builder sheets and advanced fallback render cleanly', async ({ page }) => {
+  test('mobile bid builder sheets render cleanly', async ({ page }) => {
     mkdirSync('artifacts/iteration-11-builder-layout-mobile', { recursive: true })
 
     await signInDemoUser(page)
@@ -160,6 +197,7 @@ test.describe('iphone layout', () => {
     await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Bid builder' })).toBeVisible()
     await expect(page.locator('.project-builder-mobile-list')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'New section' })).toBeVisible()
     await page.screenshot({
       path: 'artifacts/iteration-11-builder-layout-mobile/project-bid-builder-iphone13.png',
       fullPage: true,
@@ -182,18 +220,10 @@ test.describe('iphone layout', () => {
     await page.getByRole('button', { name: 'Company library' }).click()
     const libraryDialog = page.getByRole('dialog')
     await expect(libraryDialog.getByRole('heading', { name: 'Company library' })).toBeVisible()
+    await expect(libraryDialog.getByRole('tab', { name: /Labor/i })).toBeVisible()
     await libraryDialog.screenshot({
       path: 'artifacts/iteration-11-builder-layout-mobile/company-library-iphone13.png',
     })
     await page.getByRole('button', { name: 'Close' }).click()
-
-    await firstMobileCard.getByRole('link', { name: 'Advanced editor' }).click()
-    await expect(page.getByRole('link', { name: /Bid builder/i })).toBeVisible()
-    await expect(page.getByLabel('Unit of measure')).toBeVisible()
-    await expect(page.getByLabel('Cost / unit')).toBeVisible()
-    await page.screenshot({
-      path: 'artifacts/iteration-11-builder-layout-mobile/item-estimate-advanced-iphone13.png',
-      fullPage: true,
-    })
   })
 })

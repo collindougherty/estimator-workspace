@@ -1,0 +1,20 @@
+[
+  {
+    "county_label": "douglas",
+    "source_path": "/Users/collindougherty/MyCloud/properties/omaha_properties_raw_master.csv",
+    "source_size_bytes": 265783115,
+    "total_rows_scanned": 216640,
+    "matched_rows": 839,
+    "matched_unique_pins": 839,
+    "residential_rows": 805
+  },
+  {
+    "county_label": "sarpy",
+    "source_path": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/raw/properties/sarpy_county/sarpy_properties_model_ready.csv",
+    "source_size_bytes": 28729040,
+    "total_rows_scanned": 76882,
+    "matched_rows": 0,
+    "matched_unique_pins": 0,
+    "residential_rows": 0
+  }
+]

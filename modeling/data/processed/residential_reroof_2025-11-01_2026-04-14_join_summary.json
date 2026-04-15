@@ -1,0 +1,17 @@
+{
+  "permit_rows": 851,
+  "permit_rows_with_job_value": 849,
+  "permit_rows_with_parcel_number": 849,
+  "permit_rows_with_address_key": 851,
+  "property_subset_rows": 841,
+  "joined_rows": 851,
+  "matched_rows": 849,
+  "match_rate": 0.9976498237367802,
+  "pin_matches": 849,
+  "address_matches": 0,
+  "cohort_rows": 803,
+  "cohort_start_date": "2025-11-01",
+  "cohort_end_date": "2026-04-14",
+  "median_job_value": 10500.0,
+  "median_job_value_per_bldg_sf": 7.440476190476191
+}

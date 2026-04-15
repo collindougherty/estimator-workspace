@@ -32,9 +32,19 @@ import type {
   OrganizationEmployeeLibraryItem,
   OrganizationEquipmentLibraryItem,
   OrganizationMaterialLibraryItem,
+  ProjectEstimateItemUpdate,
+  ProjectItemActualUpdate,
   ProjectItemMetric,
   ProjectSummary,
 } from '../lib/models'
+import {
+  actualEquipmentBreakdownShouldReset,
+  actualLaborBreakdownShouldReset,
+  actualMaterialBreakdownShouldReset,
+  estimateEquipmentBreakdownShouldReset,
+  estimateLaborBreakdownShouldReset,
+  estimateMaterialBreakdownShouldReset,
+} from '../lib/resource-breakdowns'
 
 type EstimateFormState = {
   itemName: string
@@ -313,7 +323,7 @@ export const ProjectItemPage = () => {
     setScreenError(null)
 
     try {
-      await updateProjectEstimateItem(itemId, {
+      const patch: ProjectEstimateItemUpdate = {
         item_name: estimateForm.itemName.trim(),
         quantity: estimateDerived.quantity,
         unit: estimateForm.unit,
@@ -325,7 +335,42 @@ export const ProjectItemPage = () => {
         subcontract_cost: estimateDerived.subcontractCost,
         overhead_percent: estimateDerived.overheadPercent,
         profit_percent: estimateDerived.profitPercent,
-      })
+      }
+
+      if (item) {
+        if (
+          estimateLaborBreakdownShouldReset(
+            item,
+            parseNumericInput(estimateForm.laborHours),
+            parseNumericInput(estimateForm.laborRate),
+          )
+        ) {
+          patch.labor_breakdown = []
+        }
+
+        if (
+          estimateMaterialBreakdownShouldReset(
+            item,
+            estimateDerived.quantity,
+            estimateForm.unit,
+            estimateDerived.materialCost,
+          )
+        ) {
+          patch.material_breakdown = []
+        }
+
+        if (
+          estimateEquipmentBreakdownShouldReset(
+            item,
+            parseNumericInput(estimateForm.equipmentDays),
+            parseNumericInput(estimateForm.equipmentRate),
+          )
+        ) {
+          patch.equipment_breakdown = []
+        }
+      }
+
+      await updateProjectEstimateItem(itemId, patch)
       await loadItem()
     } catch (caughtError) {
       const message =
@@ -347,7 +392,7 @@ export const ProjectItemPage = () => {
     setScreenError(null)
 
     try {
-      await updateProjectActuals(itemId, {
+      const patch: ProjectItemActualUpdate = {
         actual_quantity: trackingDerived.actualQuantity,
         actual_labor_hours: trackingDerived.actualLaborHours,
         actual_labor_cost: trackingDerived.actualLaborCost,
@@ -359,7 +404,41 @@ export const ProjectItemPage = () => {
         actual_profit_amount: 0,
         percent_complete: trackingDerived.percentComplete,
         invoice_amount: trackingDerived.invoiceAmount,
-      })
+      }
+
+      if (item) {
+        if (
+          actualLaborBreakdownShouldReset(
+            item,
+            trackingDerived.actualLaborHours,
+            trackingDerived.actualLaborCost,
+          )
+        ) {
+          patch.actual_labor_breakdown = []
+        }
+
+        if (
+          actualMaterialBreakdownShouldReset(
+            item,
+            trackingDerived.actualQuantity,
+            trackingDerived.actualMaterialCost,
+          )
+        ) {
+          patch.actual_material_breakdown = []
+        }
+
+        if (
+          actualEquipmentBreakdownShouldReset(
+            item,
+            trackingDerived.actualEquipmentDays,
+            trackingDerived.actualEquipmentCost,
+          )
+        ) {
+          patch.actual_equipment_breakdown = []
+        }
+      }
+
+      await updateProjectActuals(itemId, patch)
       await loadItem()
     } catch (caughtError) {
       const message =
@@ -1127,7 +1206,7 @@ export const ProjectItemPage = () => {
               <div className="item-detail-section-heading">
                 <div>
                   <h2>Billing + overhead</h2>
-                  <p>Overhead is calculated from direct actuals; profit stays on the project summary.</p>
+                  <p>Overhead is calculated from direct actuals; profit is tracked on the project summary instead of typed here.</p>
                 </div>
                 <strong>{formatCurrency(trackingDerived?.actualTotalCost)}</strong>
               </div>

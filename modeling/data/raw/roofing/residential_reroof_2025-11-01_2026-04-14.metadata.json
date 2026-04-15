@@ -1,0 +1,18 @@
+{
+  "source_name": "City of Omaha Accela Citizen Access",
+  "source_url": "https://aca-prod.accela.com/OMAHA/Cap/CapHome.aspx?module=Permits&TabName=Permits",
+  "permit_type": {
+    "label": "Residential re-roof",
+    "value": "Permits/BUILDING/RESIDENTIAL/RE-ROOF",
+    "result_type": "RE-ROOF"
+  },
+  "start_date": "2025-11-01",
+  "end_date": "2026-04-14",
+  "record_count": 851,
+  "records_with_job_value": 849,
+  "records_with_parcel_number": 849,
+  "records_with_company_name": 845,
+  "records_with_errors": 0,
+  "generated_at": "2026-04-15T04:50:35Z",
+  "output_csv": "/Users/collindougherty/MyCloud/contractor_app/modeling/data/raw/roofing/residential_reroof_2025-11-01_2026-04-14.csv"
+}

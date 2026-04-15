@@ -345,14 +345,17 @@ export type Database = {
       project_estimate_items: {
         Row: {
           created_at: string
+          equipment_breakdown: Json
           equipment_days: number
           equipment_rate: number
           id: string
           is_included: boolean
           item_code: string
           item_name: string
+          labor_breakdown: Json
           labor_hours: number
           labor_rate: number
+          material_breakdown: Json
           material_cost: number
           notes: string | null
           overhead_percent: number
@@ -369,14 +372,17 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          equipment_breakdown?: Json
           equipment_days?: number
           equipment_rate?: number
           id?: string
           is_included?: boolean
           item_code: string
           item_name: string
+          labor_breakdown?: Json
           labor_hours?: number
           labor_rate?: number
+          material_breakdown?: Json
           material_cost?: number
           notes?: string | null
           overhead_percent?: number
@@ -393,14 +399,17 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          equipment_breakdown?: Json
           equipment_days?: number
           equipment_rate?: number
           id?: string
           is_included?: boolean
           item_code?: string
           item_name?: string
+          labor_breakdown?: Json
           labor_hours?: number
           labor_rate?: number
+          material_breakdown?: Json
           material_cost?: number
           notes?: string | null
           overhead_percent?: number
@@ -441,11 +450,14 @@ export type Database = {
       }
       project_item_actuals: {
         Row: {
+          actual_equipment_breakdown: Json
           actual_equipment_cost: number
           actual_equipment_days: number
           actual_finish_date: string | null
+          actual_labor_breakdown: Json
           actual_labor_cost: number
           actual_labor_hours: number
+          actual_material_breakdown: Json
           actual_material_cost: number
           actual_overhead_cost: number
           actual_profit_amount: number
@@ -461,11 +473,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          actual_equipment_breakdown?: Json
           actual_equipment_cost?: number
           actual_equipment_days?: number
           actual_finish_date?: string | null
+          actual_labor_breakdown?: Json
           actual_labor_cost?: number
           actual_labor_hours?: number
+          actual_material_breakdown?: Json
           actual_material_cost?: number
           actual_overhead_cost?: number
           actual_profit_amount?: number
@@ -481,11 +496,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          actual_equipment_breakdown?: Json
           actual_equipment_cost?: number
           actual_equipment_days?: number
           actual_finish_date?: string | null
+          actual_labor_breakdown?: Json
           actual_labor_cost?: number
           actual_labor_hours?: number
+          actual_material_breakdown?: Json
           actual_material_cost?: number
           actual_overhead_cost?: number
           actual_profit_amount?: number
@@ -589,11 +607,14 @@ export type Database = {
       project_item_metrics: {
         Row: {
           actual_direct_cost: number | null
+          actual_equipment_breakdown: Json | null
           actual_equipment_cost: number | null
           actual_equipment_days: number | null
           actual_finish_date: string | null
+          actual_labor_breakdown: Json | null
           actual_labor_cost: number | null
           actual_labor_hours: number | null
+          actual_material_breakdown: Json | null
           actual_material_cost: number | null
           actual_overhead_cost: number | null
           actual_profit_amount: number | null
@@ -603,6 +624,7 @@ export type Database = {
           actual_total_cost: number | null
           cost_variance: number | null
           earned_value_amount: number | null
+          equipment_breakdown: Json | null
           equipment_days: number | null
           equipment_rate: number | null
           estimated_direct_cost: number | null
@@ -616,9 +638,11 @@ export type Database = {
           is_included: boolean | null
           item_code: string | null
           item_name: string | null
+          labor_breakdown: Json | null
           labor_hour_variance: number | null
           labor_hours: number | null
           labor_rate: number | null
+          material_breakdown: Json | null
           material_cost: number | null
           overhead_percent: number | null
           percent_complete: number | null

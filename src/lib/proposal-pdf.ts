@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 
 import { formatCurrency, formatDate, formatNumber } from './formatters'
 import type { ProjectItemMetric, ProjectSummary } from './models'
+import { compareScopeHierarchy } from './scope-hierarchy'
 
 type RgbColor = [number, number, number]
 
@@ -439,17 +440,7 @@ export const createProposalPdf = ({
 
   const includedItems = items
     .filter((item) => item.is_included)
-    .sort((left, right) => {
-      const sortOrderDifference = (left.sort_order ?? Number.MAX_SAFE_INTEGER) - (right.sort_order ?? Number.MAX_SAFE_INTEGER)
-
-      if (sortOrderDifference !== 0) {
-        return sortOrderDifference
-      }
-
-      return `${left.section_code ?? ''}${left.item_code ?? ''}${left.item_name ?? ''}`.localeCompare(
-        `${right.section_code ?? ''}${right.item_code ?? ''}${right.item_name ?? ''}`,
-      )
-    })
+    .sort(compareScopeHierarchy)
 
   const projectName = getTextValue(project.name, 'Proposal')
   const brandName = getTextValue(organizationName, 'ProfitBuilder')
