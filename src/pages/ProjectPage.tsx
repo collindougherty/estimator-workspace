@@ -434,12 +434,12 @@ export const ProjectPage = () => {
       {showEstimateBuilder ? (
         <article className="panel panel-large">
           <div className="panel-heading panel-heading-compact">
-            <div>
-              <h2>Bid builder</h2>
-              <p className="panel-meta">
-                Keep the common bid flow on this page. Open Labor, Materials, or Equipment to search company prefills, compare rates, and apply values fast without drilling into a third page.
-              </p>
-            </div>
+              <div>
+                <h2>Bid builder</h2>
+                <p className="panel-meta">
+                  Keep the bid in the table. Open Labor, Materials, or Equipment to pull company rates without leaving the page.
+                </p>
+              </div>
             <span className="section-count">{isLoading ? '—' : terminalItems.length}</span>
           </div>
 

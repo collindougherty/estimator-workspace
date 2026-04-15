@@ -78,6 +78,7 @@ test('dashboard, tracking fallback, and two-page bid builder render cleanly', as
   await page.getByRole('link', { name: /Maple Street Roof Replacement/i }).click()
   await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Bid builder' })).toBeVisible()
+  await expect(page.locator('.project-builder-table')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Materials' }).first()).toBeVisible()
   await page.screenshot({
     path: 'artifacts/iteration-11-builder-layout/project-bid-builder.png',
@@ -146,6 +147,7 @@ test.describe('iphone layout', () => {
     await page.getByRole('link', { name: /Maple Street Roof Replacement/i }).click()
     await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Bid builder' })).toBeVisible()
+    await expect(page.locator('.project-builder-mobile-list')).toBeVisible()
     await page.screenshot({
       path: 'artifacts/iteration-11-builder-layout-mobile/project-bid-builder-iphone13.png',
       fullPage: true,
