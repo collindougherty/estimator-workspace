@@ -38,6 +38,23 @@ const emptyProjectForm = {
   notes: '',
 }
 
+const getActiveWorkSnapshot = (project: ProjectSummary) => {
+  const budget = project.estimated_total_cost ?? 0
+  const actual = project.actual_total_cost ?? 0
+  const variance = budget - actual
+  const spentPercent = budget > 0 ? Math.round((actual / budget) * 100) : null
+  const progressPercent = budget > 0 ? Math.min(Math.max((actual / budget) * 100, 0), 100) : 0
+
+  return {
+    actual,
+    budget,
+    isOverBudget: variance < 0,
+    progressPercent,
+    spentPercent,
+    variance,
+  }
+}
+
 export const DashboardPage = () => {
   const navigate = useNavigate()
   const { signOutUser, user } = useAuth()
@@ -686,127 +703,171 @@ export const DashboardPage = () => {
                       </tbody>
                     </table>
                     </div>
-                    <div className="dashboard-mobile-list">
-                      {group.projects.map((project) => (
-                        <article className="dashboard-mobile-card" key={`mobile-${project.project_id ?? project.name}`}>
-                          <div className="dashboard-mobile-card-header">
-                            <div className="dashboard-mobile-card-copy">
-                              {project.project_id ? (
-                                <Link
-                                  className="dashboard-mobile-card-link"
-                                  to={`/projects/${project.project_id}`}
-                                >
-                                  {project.name ?? 'Untitled project'}
-                                </Link>
-                              ) : (
-                                <span className="dashboard-mobile-card-link">
-                                  {project.name ?? 'Untitled project'}
-                                </span>
-                              )}
-                              <p>{project.customer_name ?? 'Customer pending'}</p>
-                              <p>{project.location ?? 'Location pending'}</p>
-                            </div>
-                            <div className="dashboard-mobile-card-amount">
-                              <strong>{formatCurrency(project.estimated_total_cost)}</strong>
-                              <span>Due {formatDate(project.bid_due_date)}</span>
-                            </div>
-                          </div>
-                          {project.status === 'active' ? (
-                            <div className="dashboard-mobile-card-meta">
-                              <span className="dashboard-mobile-chip">
-                                {formatCurrency(project.actual_total_cost)} actual
-                              </span>
-                            </div>
-                          ) : null}
-                          <div className="dashboard-mobile-card-controls">
-                             <div className="dashboard-mobile-card-status">
-                               <span className="dashboard-mobile-card-field-label">Project status</span>
-                               {project.project_id ? (
-                                 <select
-                                   aria-label={`Status for ${project.name ?? 'project'}`}
-                                  className={`status-select status-select-${normalizeProjectStatus(project.status)}`}
-                                  disabled={updatingProjectId === project.project_id}
-                                  onChange={(event) => {
-                                    void handleProjectStatusChange(
-                                      project.project_id ?? '',
-                                      event.target.value as ProjectStatus,
-                                    )
-                                  }}
-                                  value={normalizeProjectStatus(project.status)}
-                                >
-                                  {visibleProjectStatusOptions.map((status) => (
-                                    <option key={status} value={status}>
-                                      {projectStatusLabelMap[status]}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                project.status ? <StatusBadge status={project.status} /> : '—'
-                              )}
-                            </div>
-                            {project.project_id ? (
-                              <div
-                                className="project-row-actions dashboard-mobile-card-actions"
-                                ref={
-                                  actionMenuProjectId === project.project_id ? actionMenuRef : undefined
-                                }
-                              >
-                                <button
-                                  aria-expanded={actionMenuProjectId === project.project_id}
-                                  aria-label={`Actions for ${project.name ?? 'project'}`}
-                                  className="project-row-actions-button"
-                                  disabled={actioningProjectId === project.project_id}
-                                  onClick={() =>
-                                    setActionMenuProjectId((current) =>
-                                      current === project.project_id ? null : project.project_id,
-                                    )
-                                  }
-                                  type="button"
-                                >
-                                  •••
-                                </button>
-                                 {actionMenuProjectId === project.project_id ? (
-                                   <div className="project-row-actions-menu">
-                                     <button
-                                       className="project-row-actions-item"
-                                       disabled={actioningProjectId === project.project_id}
-                                       onClick={() => {
-                                         void handleDuplicateProject(project)
-                                       }}
-                                       type="button"
-                                     >
-                                       Duplicate
-                                     </button>
-                                     {project.status !== 'archived' ? (
-                                       <button
-                                         className="project-row-actions-item"
-                                        disabled={actioningProjectId === project.project_id}
-                                        onClick={() => {
-                                          void handleArchiveProject(project.project_id ?? '')
-                                        }}
-                                        type="button"
-                                      >
-                                        Archive
-                                      </button>
-                                    ) : null}
-                                    <button
-                                      className="project-row-actions-item project-row-actions-item-danger"
-                                      disabled={actioningProjectId === project.project_id}
-                                      onClick={() => {
-                                        void handleDeleteProject(project.project_id ?? '')
+                      <div className="dashboard-mobile-list">
+                        {group.projects.map((project) => {
+                          const isActiveWork = project.status === 'active'
+                          const activeSnapshot = getActiveWorkSnapshot(project)
+
+                          return (
+                            <article className="dashboard-mobile-card" key={`mobile-${project.project_id ?? project.name}`}>
+                              <div className="dashboard-mobile-card-header">
+                                <div className="dashboard-mobile-card-copy">
+                                  {project.project_id ? (
+                                    <Link
+                                      className="dashboard-mobile-card-link"
+                                      to={`/projects/${project.project_id}`}
+                                    >
+                                      {project.name ?? 'Untitled project'}
+                                    </Link>
+                                  ) : (
+                                    <span className="dashboard-mobile-card-link">
+                                      {project.name ?? 'Untitled project'}
+                                    </span>
+                                  )}
+                                  <p>{project.customer_name ?? 'Customer pending'}</p>
+                                  <p>{project.location ?? 'Location pending'}</p>
+                                </div>
+                                <div className="dashboard-mobile-card-amount">
+                                  <strong>{formatCurrency(project.estimated_total_cost)}</strong>
+                                  <span>Due {formatDate(project.bid_due_date)}</span>
+                                </div>
+                              </div>
+                              {isActiveWork ? (
+                                <div className="dashboard-mobile-active-tracking">
+                                  <div className="dashboard-mobile-active-tracking-header">
+                                    <span className="dashboard-mobile-active-tracking-kicker">
+                                      Active tracking
+                                    </span>
+                                    <strong
+                                      className={
+                                        'dashboard-mobile-active-tracking-variance' +
+                                        (activeSnapshot.isOverBudget
+                                          ? ' dashboard-mobile-active-tracking-variance-over'
+                                          : '')
+                                      }
+                                    >
+                                      {activeSnapshot.isOverBudget
+                                        ? `${formatCurrency(Math.abs(activeSnapshot.variance))} over`
+                                        : `${formatCurrency(activeSnapshot.variance)} left`}
+                                    </strong>
+                                  </div>
+                                  <div className="dashboard-mobile-active-tracking-metrics">
+                                    <div className="dashboard-mobile-active-tracking-metric">
+                                      <span>Budget</span>
+                                      <strong>{formatCurrency(activeSnapshot.budget)}</strong>
+                                    </div>
+                                    <div className="dashboard-mobile-active-tracking-metric">
+                                      <span>Actual</span>
+                                      <strong>{formatCurrency(activeSnapshot.actual)}</strong>
+                                    </div>
+                                    <div className="dashboard-mobile-active-tracking-metric">
+                                      <span>Spent</span>
+                                      <strong>
+                                        {activeSnapshot.spentPercent === null
+                                          ? '—'
+                                          : `${activeSnapshot.spentPercent}%`}
+                                      </strong>
+                                    </div>
+                                  </div>
+                                  {activeSnapshot.spentPercent !== null ? (
+                                    <div className="dashboard-mobile-active-tracking-bar" aria-hidden="true">
+                                      <span
+                                        style={{ width: `${activeSnapshot.progressPercent}%` }}
+                                      />
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              <div className="dashboard-mobile-card-controls">
+                                <div className="dashboard-mobile-card-status">
+                                  <span className="dashboard-mobile-card-field-label">Project status</span>
+                                  {project.project_id ? (
+                                    <select
+                                      aria-label={`Status for ${project.name ?? 'project'}`}
+                                      className={`status-select status-select-${normalizeProjectStatus(project.status)}`}
+                                      disabled={updatingProjectId === project.project_id}
+                                      onChange={(event) => {
+                                        void handleProjectStatusChange(
+                                          project.project_id ?? '',
+                                          event.target.value as ProjectStatus,
+                                        )
                                       }}
+                                      value={normalizeProjectStatus(project.status)}
+                                    >
+                                      {visibleProjectStatusOptions.map((status) => (
+                                        <option key={status} value={status}>
+                                          {projectStatusLabelMap[status]}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    project.status ? <StatusBadge status={project.status} /> : '—'
+                                  )}
+                                </div>
+                                {project.project_id ? (
+                                  <div
+                                    className="project-row-actions dashboard-mobile-card-actions"
+                                    ref={
+                                      actionMenuProjectId === project.project_id ? actionMenuRef : undefined
+                                    }
+                                  >
+                                    <button
+                                      aria-expanded={actionMenuProjectId === project.project_id}
+                                      aria-label={`Actions for ${project.name ?? 'project'}`}
+                                      className="project-row-actions-button"
+                                      disabled={actioningProjectId === project.project_id}
+                                      onClick={() =>
+                                        setActionMenuProjectId((current) =>
+                                          current === project.project_id ? null : project.project_id,
+                                        )
+                                      }
                                       type="button"
                                     >
-                                      Delete job
+                                      •••
                                     </button>
+                                    {actionMenuProjectId === project.project_id ? (
+                                      <div className="project-row-actions-menu">
+                                        <button
+                                          className="project-row-actions-item"
+                                          disabled={actioningProjectId === project.project_id}
+                                          onClick={() => {
+                                            void handleDuplicateProject(project)
+                                          }}
+                                          type="button"
+                                        >
+                                          Duplicate
+                                        </button>
+                                        {project.status !== 'archived' ? (
+                                          <button
+                                            className="project-row-actions-item"
+                                            disabled={actioningProjectId === project.project_id}
+                                            onClick={() => {
+                                              void handleArchiveProject(project.project_id ?? '')
+                                            }}
+                                            type="button"
+                                          >
+                                            Archive
+                                          </button>
+                                        ) : null}
+                                        <button
+                                          className="project-row-actions-item project-row-actions-item-danger"
+                                          disabled={actioningProjectId === project.project_id}
+                                          onClick={() => {
+                                            void handleDeleteProject(project.project_id ?? '')
+                                          }}
+                                          type="button"
+                                        >
+                                          Delete job
+                                        </button>
+                                      </div>
+                                    ) : null}
                                   </div>
                                 ) : null}
                               </div>
-                            ) : null}
-                          </div>
-                        </article>
-                      ))}
-                    </div>
+                            </article>
+                          )
+                        })}
+                      </div>
                   </>
                 )}
               </article>

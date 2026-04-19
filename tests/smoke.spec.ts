@@ -189,6 +189,10 @@ test.describe('iphone layout', () => {
     await expect(page.locator('.app-brand-mark')).toBeVisible()
     await expect(page.locator('.dashboard-mobile-list').first()).toBeVisible()
     await expect(page.locator('.dashboard-mobile-card .status-badge')).toHaveCount(0)
+    await expect(page.locator('.dashboard-mobile-active-tracking')).toHaveCount(1)
+    await expect(page.locator('.dashboard-mobile-active-tracking')).toContainText('Budget')
+    await expect(page.locator('.dashboard-mobile-active-tracking')).toContainText('Actual')
+    await expect(page.locator('.dashboard-mobile-active-tracking')).toContainText('Spent')
     await page.screenshot({
       path: 'artifacts/iteration-11-builder-layout-mobile/dashboard-iphone13.png',
       fullPage: true,

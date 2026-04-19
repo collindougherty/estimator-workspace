@@ -2788,6 +2788,70 @@
   gap: 8px;
 }
 
+.dashboard-mobile-active-tracking {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(134, 239, 172, 0.6);
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.96) 0%, rgba(220, 252, 231, 0.82) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.dashboard-mobile-active-tracking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.dashboard-mobile-active-tracking-kicker,
+.dashboard-mobile-active-tracking-metric span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-mobile-active-tracking-variance,
+.dashboard-mobile-active-tracking-metric strong {
+  color: var(--text-h);
+}
+
+.dashboard-mobile-active-tracking-variance {
+  font-size: 0.95rem;
+}
+
+.dashboard-mobile-active-tracking-variance-over {
+  color: #991b1b;
+}
+
+.dashboard-mobile-active-tracking-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-mobile-active-tracking-metric {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-mobile-active-tracking-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(167, 243, 208, 0.58);
+}
+
+.dashboard-mobile-active-tracking-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
+}
+
 .dashboard-mobile-card-field-label {
   display: block;
   margin-bottom: 6px;
@@ -3145,6 +3209,22 @@
   .dashboard-mobile-card-controls {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
+  }
+
+  .dashboard-mobile-active-tracking-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .dashboard-mobile-active-tracking-metrics {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .dashboard-mobile-active-tracking-metric {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
   }
 
   .worksheet-mobile-footer {
