@@ -426,19 +426,19 @@ export const DashboardPage = () => {
                     ))}
                   </select>
                 </label>
-                 <div className="project-create-scope-panel">
-                   <div className="project-create-scope-header">
-                     <div>
-                       <span className="eyebrow">Scopes</span>
-                       <strong>Pick what to start with</strong>
-                       <p className="panel-meta">
-                         Check the preset scopes you want cloned into this bid.
-                       </p>
-                     </div>
-                     <span className="section-count">
-                       {isPresetScopesLoading ? '—' : selectedPresetScopeIds.length}
-                     </span>
-                   </div>
+                  <div className="project-create-scope-panel">
+                    <div className="project-create-scope-header">
+                      <div className="project-create-scope-header-copy">
+                        <span className="project-create-scope-kicker">Scopes</span>
+                        <strong>Pick what to start with</strong>
+                        <p className="panel-meta">
+                          Check the preset scopes you want cloned into this bid.
+                        </p>
+                      </div>
+                      <span className="section-count project-create-scope-count">
+                        {isPresetScopesLoading ? '—' : selectedPresetScopeIds.length}
+                      </span>
+                    </div>
 
                    {isPresetScopesLoading ? (
                      <div className="panel-empty">Loading preset scopes…</div>
@@ -454,20 +454,20 @@ export const DashboardPage = () => {
                              {section.items.map((item) => {
                                const isChecked = selectedPresetScopeIds.includes(item.id)
 
-                               return (
-                                 <label className="project-create-scope-option" key={item.id}>
-                                   <input
-                                     checked={isChecked}
-                                     onChange={() => handleTogglePresetScope(item.id)}
-                                     type="checkbox"
-                                   />
-                                   <div>
-                                     <strong>{item.item_name}</strong>
-                                     <span>
-                                       {item.item_code} · {item.unit}
-                                     </span>
-                                   </div>
-                                 </label>
+                                return (
+                                  <label className="project-create-scope-option" key={item.id}>
+                                    <input
+                                      checked={isChecked}
+                                      onChange={() => handleTogglePresetScope(item.id)}
+                                      type="checkbox"
+                                    />
+                                    <div className="project-create-scope-option-copy">
+                                      <strong>{item.item_name}</strong>
+                                      <span className="project-create-scope-option-meta">
+                                        {item.item_code} · {item.unit}
+                                      </span>
+                                    </div>
+                                  </label>
                                )
                              })}
                            </div>
@@ -711,19 +711,19 @@ export const DashboardPage = () => {
                               <span>Due {formatDate(project.bid_due_date)}</span>
                             </div>
                           </div>
-                          <div className="dashboard-mobile-card-meta">
-                            {project.status ? <StatusBadge status={project.status} /> : null}
-                            {project.status === 'active' ? (
+                          {project.status === 'active' ? (
+                            <div className="dashboard-mobile-card-meta">
                               <span className="dashboard-mobile-chip">
                                 {formatCurrency(project.actual_total_cost)} actual
                               </span>
-                            ) : null}
-                          </div>
+                            </div>
+                          ) : null}
                           <div className="dashboard-mobile-card-controls">
-                            <div className="dashboard-mobile-card-status">
-                              {project.project_id ? (
-                                <select
-                                  aria-label={`Status for ${project.name ?? 'project'}`}
+                             <div className="dashboard-mobile-card-status">
+                               <span className="dashboard-mobile-card-field-label">Project status</span>
+                               {project.project_id ? (
+                                 <select
+                                   aria-label={`Status for ${project.name ?? 'project'}`}
                                   className={`status-select status-select-${normalizeProjectStatus(project.status)}`}
                                   disabled={updatingProjectId === project.project_id}
                                   onChange={(event) => {

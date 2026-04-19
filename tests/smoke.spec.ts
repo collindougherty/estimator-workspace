@@ -188,6 +188,7 @@ test.describe('iphone layout', () => {
     await expect(page.getByRole('heading', { name: 'ProfitBuilder' })).toBeVisible()
     await expect(page.locator('.app-brand-mark')).toBeVisible()
     await expect(page.locator('.dashboard-mobile-list').first()).toBeVisible()
+    await expect(page.locator('.dashboard-mobile-card .status-badge')).toHaveCount(0)
     await page.screenshot({
       path: 'artifacts/iteration-11-builder-layout-mobile/dashboard-iphone13.png',
       fullPage: true,
