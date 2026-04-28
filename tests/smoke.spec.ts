@@ -50,6 +50,15 @@ const openTrackingBucket = async (page: Page, bucket: 'Equipment' | 'Labor') => 
 const tearOffTrackingRow = (page: Page) =>
   page.locator('.tracking-table tbody tr').filter({ hasText: 'Tear off and disposal' }).first()
 
+const parseCurrency = (value: string) => Number(value.replace(/[^0-9.-]/g, ''))
+
+const toCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value)
+
 test('dashboard, tracking table, and two-page bid builder render cleanly', async ({ page }) => {
   mkdirSync('artifacts/iteration-11-builder-layout', { recursive: true })
 
@@ -189,14 +198,33 @@ test.describe('iphone layout', () => {
     await expect(page.locator('.app-brand-mark')).toBeVisible()
     await expect(page.locator('.dashboard-mobile-list').first()).toBeVisible()
     await expect(page.locator('.dashboard-mobile-card .status-badge')).toHaveCount(0)
-    await expect(page.locator('.dashboard-mobile-active-tracking')).toHaveCount(1)
-    await expect(page.locator('.dashboard-mobile-active-tracking')).toContainText('Budget')
-    await expect(page.locator('.dashboard-mobile-active-tracking')).toContainText('Actual')
-    await expect(page.locator('.dashboard-mobile-active-tracking')).toContainText('Spent')
+    const mobileActiveTrackingCards = page.locator('.dashboard-mobile-active-tracking')
+    await expect(mobileActiveTrackingCards).not.toHaveCount(0)
+    await expect(mobileActiveTrackingCards.first()).toContainText('Budget')
+    await expect(mobileActiveTrackingCards.first()).toContainText('Actual')
+    await expect(mobileActiveTrackingCards.first()).toContainText('Spent')
     await page.screenshot({
       path: 'artifacts/iteration-11-builder-layout-mobile/dashboard-iphone13.png',
       fullPage: true,
     })
+
+    await page.getByRole('link', { name: /Pine Court Storm Repair/i }).click()
+    await expect(page.getByRole('heading', { name: 'Pine Court Storm Repair' })).toBeVisible()
+    await expect(page.getByText('Quick add view')).toBeVisible()
+    await expect(page.locator('.tracking-mobile-quick-card')).toHaveCount(2)
+    const mobileQuickActualTotal = parseCurrency(
+      (await page.locator('.tracking-mobile-quick-total strong').textContent()) ?? '$0',
+    )
+    await page.getByLabel('Add labor cost').fill('100')
+    await expect(page.getByText(`After add ${toCurrency(mobileQuickActualTotal + 100)}`)).toBeVisible()
+    await expect(page.locator('.tracking-mobile-scope-details')).toContainText('Show WBS details')
+    await page.screenshot({
+      path: 'artifacts/iteration-11-builder-layout-mobile/project-tracking-iphone13.png',
+      fullPage: true,
+    })
+
+    await page.getByRole('link', { name: /Back/i }).click()
+    await expect(page.getByRole('heading', { name: 'ProfitBuilder' })).toBeVisible()
 
     await page.getByRole('link', { name: /Maple Street Roof Replacement/i }).click()
     await expect(page.getByRole('heading', { name: 'Maple Street Roof Replacement' })).toBeVisible()
